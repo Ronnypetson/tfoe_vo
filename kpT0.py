@@ -88,7 +88,7 @@ class KpT0:
             yield points, p1-points, T0
 
 if __name__ == '__main__':
-    fn_re = '2011_09_26_drive_0001_sync/image_00/data/*.png'
+    fn_re = '/home/ronnypetson/Downloads/2011_09_26/2011_09_26_drive_0001_sync/image_00/data/*.png'
     kp = KpT0(376,1241,fn_re)
     poses = []
     i = 0

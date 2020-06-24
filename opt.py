@@ -6,7 +6,7 @@ import torch
 from liegroups.torch import SE3 as SE3tc
 
 class OptSingle:
-    def __init__(self,x,x_):
+    def __init__(self,x,x_,c):
         ''' x and x_ are 3xN
         '''
         self.x = x
@@ -15,6 +15,7 @@ class OptSingle:
         n = x.shape[1]
         self.T = np.zeros(6)
         self.foe = np.zeros(2)
+        self.c = torch.from_numpy(c).float()
     
     def objective(self,Tfoe,grad=False):
         ''' Tfoe is 8
@@ -34,7 +35,7 @@ class OptSingle:
         T = T.as_matrix()
         d = depth_tc(torch.from_numpy(self.x[:2]).float(),\
                      torch.from_numpy(self.f[:2]).float(),foe)
-        c = torch.eye(3)
+        c = self.c #torch.eye(3)
         x_rep = reproj_tc(torch.from_numpy(self.x).float(),T,d,c)
         y = torch.from_numpy(self.x_).float()-x_rep
         y = torch.mean(torch.abs(y))
@@ -43,15 +44,8 @@ class OptSingle:
         #if grad:
         gradTfoe = Tfoe.grad.detach().numpy()
         y = y.detach().numpy()
+        #print(y)
         return y, gradTfoe
-        #else:
-        #    y = y.detach().numpy()
-        #    return y
-
-    def obj_grad(self,Tfoe):
-        y,grd = self.objective(Tfoe,grad=True)
-        print(y,grd)
-        return grd
     
     def optimize(self,T0,foe0):
         ''' T0 is 6

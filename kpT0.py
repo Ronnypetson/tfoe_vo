@@ -3,6 +3,7 @@ import cv2
 from liegroups import SE3
 from glob import glob
 from matplotlib import pyplot as plt
+from opt import OptSingle
 
 def homSE3tose3(R,t):
     ''' R is 3 x 3, t is 3 x 1
@@ -80,6 +81,7 @@ class KpT0:
                 
                 _, R, t, mask = cv2.recoverPose(E, p1, points, camera_matrix, mask=mask) # , mask=mask
                 T0 = homSE3tose3(R,t)
+                self.vids = [i for i in range(len(mask)) if mask[i] == 1.0]
             
             except cv2.error as e:
                 print(e)
@@ -90,12 +92,33 @@ class KpT0:
 if __name__ == '__main__':
     fn_re = '/home/ronnypetson/Downloads/2011_09_26/2011_09_26_drive_0001_sync/image_00/data/*.png'
     kp = KpT0(376,1241,fn_re)
+    c = kp.camera_matrix
     poses = []
+    poses_ = []
     i = 0
     for p,f,T in kp:
         poses.append(T)
+        
+        x = p[kp.vids,0,:].transpose(1,0)
+        z = np.ones((1,x.shape[-1]))
+        x = np.concatenate([x,z],axis=0)
+        
+        x_ = p + f
+        x_ = x_[kp.vids,0,:].transpose(1,0)
+        x_ = np.concatenate([x_,z],axis=0)
+        
+        opt = OptSingle(x,x_,c)
+        T0 = np.zeros(6)
+        foe0 = np.zeros(2)
+        Tfoe = opt.optimize(T0,foe0)
+        T_ = Tfoe[:6]
+        T_[:3] /= np.linalg.norm(T_[:3])
+        #T_ = SE3.exp(T_).as_matrix()
+        poses_.append(T_)
+        
         i += 1
         if i == 100:
             break
     plot_traj(poses,'traj.png')
+    plot_traj(poses_,'traj_.png')
 

@@ -79,9 +79,11 @@ class KpT0:
                 E, mask = cv2.findEssentialMat(p1, points, camera_matrix,\
                                                cv2.RANSAC, 0.999, 0.1, None)
                 
+                self.vids = [i for i in range(len(mask)) if mask[i] == 1.0]
+                
                 _, R, t, mask = cv2.recoverPose(E, p1, points, camera_matrix, mask=mask) # , mask=mask
                 T0 = homSE3tose3(R,t)
-                self.vids = [i for i in range(len(mask)) if mask[i] == 1.0]
+                
             
             except cv2.error as e:
                 print(e)
@@ -99,26 +101,26 @@ if __name__ == '__main__':
     for p,f,T in kp:
         poses.append(T)
         
-        x = p[:,0,:].transpose(1,0)
+        x = p[kp.vids,0,:].transpose(1,0)
         z = np.ones((1,x.shape[-1]))
         x = np.concatenate([x,z],axis=0)
         
         x_ = p + f
-        x_ = x_[:,0,:].transpose(1,0)
+        x_ = x_[kp.vids,0,:].transpose(1,0)
         x_ = np.concatenate([x_,z],axis=0)
         
         opt = OptSingle(x,x_,c)
-        T0 = T #np.zeros(6)
+        T0 = np.zeros(6)
         foe0 = np.array([1241/2,376/2])
         Tfoe = opt.optimize(T0,foe0)
         T_ = Tfoe[:6]
-        T_[:3] = T[:3]
-        #T_[:3] /= np.linalg.norm(T_[:3])
+        #T_[:3] = T[:3]
+        T_[:3] /= np.linalg.norm(T_[:3])
         poses_.append(T_)
         
-        i += 1
-        if i == 50:
-            break
+        #i += 1
+        #if i == 50:
+        #    break
     plot_traj(poses,'traj.png')
     plot_traj(poses_,'traj_.png')
 

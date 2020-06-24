@@ -98,7 +98,8 @@ class KpT0:
             yield points, p1-points, T0
 
 if __name__ == '__main__':
-    fn_re = '/home/ronnypetson/Downloads/2011_09_26/2011_09_26_drive_0005_sync/image_00/data/*.png'
+    seq_id = '2011_09_26_drive_0046_sync'
+    fn_re = f'/home/ronnypetson/Downloads/2011_09_26/{seq_id}/image_00/data/*.png'
     kp = KpT0(376,1241,fn_re)
     c = kp.camera_matrix
     poses = []
@@ -124,8 +125,8 @@ if __name__ == '__main__':
         T_[:3] /= np.linalg.norm(T_[:3])
         poses_.append(T_)
         
-        i += 1
-        if i == 10:
-            break
-    plot_traj(poses,poses_,'trajs.png')
+        #i += 1
+        #if i == 10:
+        #    break
+    plot_traj(poses,poses_,f'{seq_id}.png')
 

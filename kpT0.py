@@ -17,7 +17,7 @@ def homSE3tose3(R,t):
     p = p.inv().log()
     return p
 
-def plot_traj(poses,outfn):
+def T2traj(poses):
     p = np.zeros((4,1))
     p[-1,0] = 1.0
     pts = [p]
@@ -28,12 +28,18 @@ def plot_traj(poses,outfn):
         pts.append(p)
     pts = np.array(pts)
     pts = pts[:,:,0]
+    return pts
+
+def plot_traj(poses,poses_,outfn):
+    pts = T2traj(poses)
+    pts_ = T2traj(poses_)
     
     fig = plt.figure()
     plt.axis('equal')
     
     ax = fig.add_subplot(111)
-    ax.plot(pts[:,0],pts[:,2],'b-')
+    ax.plot(pts[:,0],pts[:,2],'g-')
+    ax.plot(pts_[:,0],pts_[:,2],'b-')
     
     plt.savefig(outfn)
     plt.close(fig)
@@ -118,9 +124,8 @@ if __name__ == '__main__':
         T_[:3] /= np.linalg.norm(T_[:3])
         poses_.append(T_)
         
-        #i += 1
-        #if i == 50:
-        #    break
-    plot_traj(poses,'traj.png')
-    plot_traj(poses_,'traj_.png')
+        i += 1
+        if i == 10:
+            break
+    plot_traj(poses,poses_,'trajs.png')
 

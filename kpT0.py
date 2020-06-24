@@ -90,7 +90,7 @@ class KpT0:
             yield points, p1-points, T0
 
 if __name__ == '__main__':
-    fn_re = '/home/ronnypetson/Downloads/2011_09_26/2011_09_26_drive_0001_sync/image_00/data/*.png'
+    fn_re = '/home/ronnypetson/Downloads/2011_09_26/2011_09_26_drive_0005_sync/image_00/data/*.png'
     kp = KpT0(376,1241,fn_re)
     c = kp.camera_matrix
     poses = []
@@ -99,25 +99,25 @@ if __name__ == '__main__':
     for p,f,T in kp:
         poses.append(T)
         
-        x = p[kp.vids,0,:].transpose(1,0)
+        x = p[:,0,:].transpose(1,0)
         z = np.ones((1,x.shape[-1]))
         x = np.concatenate([x,z],axis=0)
         
         x_ = p + f
-        x_ = x_[kp.vids,0,:].transpose(1,0)
+        x_ = x_[:,0,:].transpose(1,0)
         x_ = np.concatenate([x_,z],axis=0)
         
         opt = OptSingle(x,x_,c)
-        T0 = np.zeros(6)
-        foe0 = np.zeros(2)
+        T0 = T #np.zeros(6)
+        foe0 = np.array([1241/2,376/2])
         Tfoe = opt.optimize(T0,foe0)
         T_ = Tfoe[:6]
-        T_[:3] /= np.linalg.norm(T_[:3])
-        #T_ = SE3.exp(T_).as_matrix()
+        T_[:3] = T[:3]
+        #T_[:3] /= np.linalg.norm(T_[:3])
         poses_.append(T_)
         
         i += 1
-        if i == 100:
+        if i == 50:
             break
     plot_traj(poses,'traj.png')
     plot_traj(poses_,'traj_.png')

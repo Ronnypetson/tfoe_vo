@@ -1,6 +1,6 @@
 import numpy as np
 from scipy.optimize import minimize
-from reproj import reproj, depth, gen_pts, reproj_tc, depth_tc
+from reproj import reproj, depth, gen_pts, reproj_tc, depth_tc, reproj_tc_foe
 from liegroups import SE3
 import torch
 from liegroups.torch import SE3 as SE3tc
@@ -16,6 +16,7 @@ class OptSingle:
         self.T = np.zeros(6)
         self.foe = np.zeros(2)
         self.c = torch.from_numpy(c).float()
+        self.c_ = torch.inverse(self.c)
     
     def objective(self,Tfoe,grad=False):
         ''' Tfoe is 8
@@ -27,17 +28,24 @@ class OptSingle:
         Tfoe_ = Tfoe.clone()
         
         T = Tfoe_[:6]
-        #t_norm = torch.norm(T.clone()[:3])+1e-8
-        #T[:3] = T.clone()[:3] / t_norm
         foe = Tfoe_[6:]
         foe = foe.unsqueeze(-1)
         T = SE3tc.exp(T.clone())
         T = T.as_matrix()
-        d = depth_tc(torch.from_numpy(self.x[:2]).float(),\
-                     torch.from_numpy(self.f[:2]).float(),foe)
-        c = self.c #torch.eye(3)
-        x_rep = reproj_tc(torch.from_numpy(self.x).float(),T,d,c)
-        y = torch.from_numpy(self.x_).float()-x_rep
+        
+        c = self.c
+        c_ = self.c_
+        
+        #d = depth_tc(torch.from_numpy(self.x[:2]).float(),\
+        #             torch.from_numpy(self.f[:2]).float(),foe)
+        #x_rep = reproj_tc(torch.from_numpy(self.x).float(),T,d,c)
+        #y = torch.from_numpy(self.x_).float()-x_rep
+        
+        x_rep = reproj_tc_foe(torch.from_numpy(self.x).float(),\
+                              torch.from_numpy(self.x_).float(),\
+                              T,foe,c)
+        y = c_ @ torch.from_numpy(self.x_).float()-x_rep
+        
         y = torch.mean(torch.abs(y))
         #y = y + torch.abs(1.0 - torch.norm(Tfoe_[:3]))
         y.backward()

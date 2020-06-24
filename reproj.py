@@ -33,6 +33,28 @@ def reproj_tc(p,T,d,c):
     p_ = c @ p_
     return p_
 
+def reproj_tc_foe(p,p_,T,foe,c):
+    ''' Computes rerpojection of points p given pose T and camera intrinsics c.
+        T is in SE3 form.
+        d is 1xN -- point depths.
+        c is in 3x3 form.
+        p is 3xN in image coordinates.
+    '''
+    c_ = torch.inverse(c)
+    p = c_ @ p
+    
+    p_ = c_ @ p_
+    z = torch.ones(1,1)
+    foe = torch.cat([foe,z],dim=0)
+    foe = c_ @ foe
+    d = depth_tc(p[:2],(p_-p)[:2],foe[:2])
+    
+    x = p * d
+    x_ = T[:3,:3] @ x + T[:3,3:]
+    p_rep = x_ / x_[-1:]
+    #p_rep = c @ p_rep
+    return p_rep
+
 def depth(p,f,foe):
     ''' p is 2xN
         f is 2xN (flow)
@@ -42,7 +64,6 @@ def depth(p,f,foe):
     dist = p-foe
     dist = np.linalg.norm(dist,axis=0)
     d = dist / mag
-    # d = np.linalg.norm(foe-(w/2,h/2))/mag
     return d
 
 def depth_tc(p,f,foe):
@@ -50,14 +71,11 @@ def depth_tc(p,f,foe):
         f is 2xN (flow)
         foe is 2x1
     '''
-    foe = foe*1e3
     mag = torch.norm(f,dim=0)
     mag = torch.clamp(mag,0.001)
     dist = p-foe
     dist = torch.norm(dist,dim=0)
     d = dist / mag
-    #d = 1.0 / mag
-    #d = torch.norm(foe)/mag
     return d
 
 def gen_pts(n):

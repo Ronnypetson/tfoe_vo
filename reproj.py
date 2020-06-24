@@ -1,6 +1,7 @@
 import numpy as np
 import cv2
 from liegroups import SE3
+import torch
 
 def reproj(p,T,d,c):
     ''' Computes rerpojection of points p given pose T and camera intrinsics c.
@@ -10,6 +11,21 @@ def reproj(p,T,d,c):
         p is 3xN in image coordinates.
     '''
     c_ = np.linalg.inv(c)
+    p = c_ @ p
+    x = p * d
+    x_ = T[:3,:3] @ x + T[:3,3:]
+    p_ = x_ / x_[-1:]
+    p_ = c @ p_
+    return p_
+
+def reproj_tc(p,T,d,c):
+    ''' Computes rerpojection of points p given pose T and camera intrinsics c.
+        T is in SE3 form.
+        d is 1xN -- point depths.
+        c is in 3x3 form.
+        p is 3xN in image coordinates.
+    '''
+    c_ = torch.inverse(c)
     p = c_ @ p
     x = p * d
     x_ = T[:3,:3] @ x + T[:3,3:]
@@ -29,18 +45,38 @@ def depth(p,f,foe):
     # d = np.linalg.norm(foe-(w/2,h/2))/mag
     return d
 
+def depth_tc(p,f,foe):
+    ''' p is 2xN
+        f is 2xN (flow)
+        foe is 2x1
+    '''
+    mag = torch.norm(f,dim=0)
+    mag = torch.clamp(mag,0.01)
+    dist = p-foe
+    dist = torch.norm(dist,dim=0)
+    d = dist / mag
+    #d = torch.norm(foe)/mag
+    return d
+
 def gen_pts(n):
     ''' returns x,x'
         x and x' are 3xN
     '''
-    x = np.random.randn(3,n)
-    d = x[[-1]]
-    x = x / d
+    x = 1e3*np.random.randn(3,n)
+    x[-1] = 1.0
+    d = 1e3*np.abs(np.random.randn(1,n))
     
-    R = np.random.randn(3,3)
-    U,S,Vt = np.linalg.svd(R)
-    R = Vt.T
-    t = np.random.randn(3,1)
+    tse3 = 1e-3*np.random.randn(6)
+    tse3[[3,5]] = 0.0 # 0,1,2,
+    T = SE3.exp(tse3)
+    T = T.as_matrix()
+    R = T[:3,:3]
+    t = T[:3,3:]
+    
+    #print(x*d)
+    #print(R)
+    #print(R @ (x*d))
+    #print()
     
     x_ = R @ (x*d) + t
     x_ = x_ / x_[[-1]]
@@ -48,12 +84,19 @@ def gen_pts(n):
     return x,x_,d,R,t
 
 if __name__ == '__main__':
-    x,x_,d,R,t = gen_pts(5)
+    x,x_,d,R,t = gen_pts(60)
     f = x_-x
     c = np.eye(3)
     T = np.eye(4)
     T[:3,:3] = R
     T[:3,3:] = t
+    
+    x_rep = reproj_tc(torch.from_numpy(x),\
+                      torch.from_numpy(T),\
+                      torch.from_numpy(d),\
+                      torch.from_numpy(c))
+    print(np.linalg.norm(x_-x_rep.detach().numpy()))
+    
     x_rep = reproj(x,T,d,c)
     print(np.linalg.norm(x_-x_rep))
     foe = np.zeros((2,1))

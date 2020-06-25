@@ -181,12 +181,12 @@ if __name__ == '__main__':
         poses.append(T)
         poses_gt.append(Tgt)
         
-        x = p[kp.vids,0,:].transpose(1,0)
+        x = p[kp.vids,0,:].transpose(1,0) # 
         z = np.ones((1,x.shape[-1]))
         x = np.concatenate([x,z],axis=0)
         
         x_ = p + f
-        x_ = x_[kp.vids,0,:].transpose(1,0)
+        x_ = x_[kp.vids,0,:].transpose(1,0) # kp.vids
         x_ = np.concatenate([x_,z],axis=0)
         
         opt = OptSingle(x,x_,c)

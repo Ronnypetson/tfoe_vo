@@ -5,6 +5,7 @@ from liegroups import SE3
 import torch
 import torch.nn.functional as F
 from liegroups.torch import SE3 as SE3tc
+from hessian import jacobian, hessian
 
 class OptSingle:
     def __init__(self,x,x_,c):
@@ -18,6 +19,44 @@ class OptSingle:
         self.foe = np.zeros(2)
         self.c = torch.from_numpy(c) #.float()
         self.c_ = torch.inverse(self.c)
+    
+    def obj_tc(self,Tfoe):
+        T = Tfoe[:6]
+        foe = Tfoe[6:]
+        foe = foe.unsqueeze(-1)
+        T = SE3tc.exp(T.clone())
+        T = T.as_matrix()
+        c = self.c
+        c_ = self.c_
+        x_rep = reproj_tc_foe(torch.from_numpy(self.x),\
+                              torch.from_numpy(self.x_),\
+                              T,foe,c)
+        y = c_ @ torch.from_numpy(self.x_)-x_rep
+        y = torch.mean(y**2.0)
+        return y
+   
+    def obj_npy(self,Tfoe):
+        Tfoe = torch.from_numpy(Tfoe)
+        Tfoe = Tfoe.requires_grad_(True)
+        Tfoe.retain_grad()
+        Tfoe_ = Tfoe.clone()
+        y = self.obj_tc(Tfoe_)
+        y = y.detach().numpy()
+        return y
+    
+    def jac_npy(self,Tfoe):
+        Tfoe = torch.from_numpy(Tfoe)
+        Tfoe = Tfoe.requires_grad_(True)
+        jac = jacobian(self.obj_tc(Tfoe),Tfoe)
+        jac = jac.detach().numpy()
+        return jac
+    
+    def hess_npy(self,Tfoe):
+        Tfoe = torch.from_numpy(Tfoe)
+        Tfoe = Tfoe.requires_grad_(True)
+        hess = hessian(self.obj_tc(Tfoe),Tfoe)
+        hess = hess.detach().numpy()
+        return hess
     
     def objective(self,Tfoe,grad=False):
         ''' Tfoe is 8
@@ -59,6 +98,10 @@ class OptSingle:
         #print(y)
         return y, gradTfoe
     
+    def hess(self,x):
+        y = self.objective(x)
+        h = hessian(y,x)
+    
     def optimize(self,T0,foe0):
         ''' T0 is 6
             foe0 is 2
@@ -72,12 +115,27 @@ class OptSingle:
         #                        'maxiter':100,\
         #                        'gtol':1e-8})
         
-        res = minimize(self.objective,\
-                       Tfoe0,method='L-BFGS-B',\
-                       jac=True,\
-                       bounds=[(None,None),(None,None),(None,None),\
-                               (-0.1,0.1),(-0.1,0.1),(-0.1,0.1),\
-                               (None,None),(None,None)],\
+        #res = minimize(self.objective,\
+        #               Tfoe0,method='L-BFGS-B',\
+        #               jac=True,\
+        #               bounds=[(None,None),(None,None),(None,None),\
+        #                       (-0.2,0.2),(-0.2,0.2),(-0.2,0.2),\
+        #                       (None,None),(None,None)],\
+        #               options={'disp': False,\
+        #                        'maxiter':100,\
+        #                        'gtol':1e-8})
+        
+        #res = minimize(self.objective,\
+        #               Tfoe0,method='Newton-CG',\
+        #               jac=True,\
+        #               options={'disp': False,\
+        #                        'maxiter':100,\
+        #                        'gtol':1e-8})
+        
+        res = minimize(self.obj_npy,\
+                       Tfoe0,method='Newton-CG',\
+                       jac=self.jac_npy,\
+                       hess=self.hess_npy,\
                        options={'disp': False,\
                                 'maxiter':100,\
                                 'gtol':1e-8})

@@ -16,14 +16,14 @@ class OptSingle:
         n = x.shape[1]
         self.T = np.zeros(6)
         self.foe = np.zeros(2)
-        self.c = torch.from_numpy(c).float()
+        self.c = torch.from_numpy(c) #.float()
         self.c_ = torch.inverse(self.c)
     
     def objective(self,Tfoe,grad=False):
         ''' Tfoe is 8
         '''
         Tfoe = torch.from_numpy(Tfoe)
-        Tfoe = Tfoe.float()
+        #Tfoe = Tfoe.float()
         Tfoe = Tfoe.requires_grad_(True)
         Tfoe.retain_grad()
         Tfoe_ = Tfoe.clone()
@@ -42,10 +42,12 @@ class OptSingle:
         #x_rep = reproj_tc(torch.from_numpy(self.x).float(),T,d,c)
         #y = torch.from_numpy(self.x_).float()-x_rep
         
-        x_rep = reproj_tc_foe(torch.from_numpy(self.x).float(),\
-                              torch.from_numpy(self.x_).float(),\
+        # .float()
+        x_rep = reproj_tc_foe(torch.from_numpy(self.x),\
+                              torch.from_numpy(self.x_),\
                               T,foe,c)
-        y = c_ @ torch.from_numpy(self.x_).float()-x_rep
+        # .float()
+        y = c_ @ torch.from_numpy(self.x_)-x_rep
 
         y = torch.mean(y**2.0)
         #y = F.smooth_l1_loss(c_ @ torch.from_numpy(self.x_).float(),x_rep)
@@ -63,12 +65,23 @@ class OptSingle:
         '''
         Tfoe0 = np.concatenate([T0,foe0],axis=0)
         Tfoe0 = np.expand_dims(Tfoe0,axis=-1)
+        #res = minimize(self.objective,\
+        #               Tfoe0,method='BFGS',\
+        #               jac=True,\
+        #               options={'disp': True,\
+        #                        'maxiter':100,\
+        #                        'gtol':1e-8})
+        
         res = minimize(self.objective,\
-                       Tfoe0,method='BFGS',\
+                       Tfoe0,method='L-BFGS-B',\
                        jac=True,\
+                       bounds=[(None,None),(None,None),(None,None),\
+                               (-0.1,0.1),(-0.1,0.1),(-0.1,0.1),\
+                               (None,None),(None,None)],\
                        options={'disp': True,\
                                 'maxiter':100,\
                                 'gtol':1e-8})
+        
         return res.x
 
 if __name__ == '__main__':

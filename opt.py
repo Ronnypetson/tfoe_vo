@@ -78,7 +78,7 @@ class OptSingle:
                        bounds=[(None,None),(None,None),(None,None),\
                                (-0.1,0.1),(-0.1,0.1),(-0.1,0.1),\
                                (None,None),(None,None)],\
-                       options={'disp': True,\
+                       options={'disp': False,\
                                 'maxiter':100,\
                                 'gtol':1e-8})
         

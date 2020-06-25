@@ -132,13 +132,15 @@ class KpT0:
                 self.vids = [j for j in range(len(mask)) if mask[j] == 1.0]
                 
                 _, R, t, mask = cv2.recoverPose(E, p1, points, camera_matrix, mask=mask) # , mask=mask
-                #T0 = np.eye(4)
-                #T0[:3,:3] = R
-                #T0[:3,3:] = t
+                T0 = np.eye(4)
+                T0[:3,:3] = R
+                T0[:3,3:] = t
                 #T0 = np.linalg.inv(T0)
+                if i == 0:
+                    T0 = np.eye(4)
                 #T0 = homSE3tose3(T0[:3,:3],T0[:3,3:])
-                T0 = homSE3tose3(R,t)
-                T0 = SE3.exp(T0).inv().as_matrix()
+                #T0 = homSE3tose3(R,t)
+                #T0 = SE3.exp(T0).as_matrix()
                 
                 inert = np.linalg.inv(gt_odom[prev_id])
                 #Tgt = gt_odom[i] @ inert
@@ -174,7 +176,7 @@ if __name__ == '__main__':
     i = 0
     for p,f,T,Tgt in kp:
         normT = np.linalg.norm(Tgt[:3,3])
-        #T = norm_t(T,normT)
+        T = norm_t(T,normT)
         
         poses.append(T)
         poses_gt.append(Tgt)
@@ -188,7 +190,7 @@ if __name__ == '__main__':
         x_ = np.concatenate([x_,z],axis=0)
         
         opt = OptSingle(x,x_,c)
-        T0 = np.zeros(6)
+        T0 = SE3.from_matrix(T).log() #np.zeros(6)
         foe0 = np.array([1241/2,376/2])
         Tfoe = opt.optimize(T0,foe0)
         T_ = Tfoe[:6]
@@ -200,6 +202,6 @@ if __name__ == '__main__':
         if i == 200:
             break
         
-        P = [poses_gt,poses_]
+        P = [poses_gt,poses,poses_]
         plot_trajs(P,f'{seq_id}.png',glb=False)
 

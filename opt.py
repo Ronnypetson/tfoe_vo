@@ -65,8 +65,8 @@ class OptSingle:
                        Tfoe0,method='BFGS',\
                        jac=True,\
                        options={'disp': True,\
-                                'maxiter':20,\
-                                'gtol':1e-2})
+                                'maxiter':100,\
+                                'gtol':1e-8})
         return res.x
 
 if __name__ == '__main__':

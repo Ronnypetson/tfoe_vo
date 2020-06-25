@@ -3,6 +3,7 @@ from scipy.optimize import minimize
 from reproj import reproj, depth, gen_pts, reproj_tc, depth_tc, reproj_tc_foe
 from liegroups import SE3
 import torch
+import torch.nn.functional as F
 from liegroups.torch import SE3 as SE3tc
 
 class OptSingle:
@@ -45,8 +46,9 @@ class OptSingle:
                               torch.from_numpy(self.x_).float(),\
                               T,foe,c)
         y = c_ @ torch.from_numpy(self.x_).float()-x_rep
-        
-        y = torch.mean(torch.abs(y))
+
+        y = torch.mean(y**2.0)
+        #y = F.smooth_l1_loss(c_ @ torch.from_numpy(self.x_).float(),x_rep)
         #y = y + torch.abs(1.0 - torch.norm(Tfoe_[:3]))
         y.backward()
         #if grad:

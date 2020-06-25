@@ -190,17 +190,14 @@ if __name__ == '__main__':
         x_ = np.concatenate([x_,z],axis=0)
         
         opt = OptSingle(x,x_,c)
-        T0 = SE3.from_matrix(T).log() #np.zeros(6)
+        #T0 = SE3.from_matrix(T).log()
+        T0 = np.zeros(6)
         foe0 = np.array([1241/2,376/2])
         Tfoe = opt.optimize(T0,foe0)
         T_ = Tfoe[:6]
         T_ = SE3.exp(T_).inv().as_matrix()
         T_ = norm_t(T_,normT)
         poses_.append(T_)
-        
-        i += 1
-        if i == 200:
-            break
         
         P = [poses_gt,poses,poses_]
         plot_trajs(P,f'{seq_id}.png',glb=False)

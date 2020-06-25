@@ -92,10 +92,8 @@ class OptSingle:
         #y = F.smooth_l1_loss(c_ @ torch.from_numpy(self.x_).float(),x_rep)
         #y = y + torch.abs(1.0 - torch.norm(Tfoe_[:3]))
         y.backward()
-        #if grad:
         gradTfoe = Tfoe.grad.detach().numpy()
         y = y.detach().numpy()
-        #print(y)
         return y, gradTfoe
     
     def hess(self,x):
@@ -108,6 +106,7 @@ class OptSingle:
         '''
         Tfoe0 = np.concatenate([T0,foe0],axis=0)
         Tfoe0 = np.expand_dims(Tfoe0,axis=-1)
+        
         #res = minimize(self.objective,\
         #               Tfoe0,method='BFGS',\
         #               jac=True,\
@@ -115,15 +114,19 @@ class OptSingle:
         #                        'maxiter':100,\
         #                        'gtol':1e-8})
         
-        #res = minimize(self.objective,\
-        #               Tfoe0,method='L-BFGS-B',\
-        #               jac=True,\
-        #               bounds=[(None,None),(None,None),(None,None),\
-        #                       (-0.2,0.2),(-0.2,0.2),(-0.2,0.2),\
-        #                       (None,None),(None,None)],\
-        #               options={'disp': False,\
-        #                        'maxiter':100,\
-        #                        'gtol':1e-8})
+        bounds = []
+        for par in Tfoe0[:6]:
+            bounds.append((par-1e-4,par+1e-4))
+        for par in Tfoe0[6:]:
+            bounds.append((None,None))
+        
+        res = minimize(self.objective,\
+                       Tfoe0,method='L-BFGS-B',\
+                       jac=True,\
+                       bounds=bounds,\
+                       options={'disp': False,\
+                                'maxiter':100,\
+                                'gtol':1e-8})
         
         #res = minimize(self.objective,\
         #               Tfoe0,method='Newton-CG',\
@@ -132,13 +135,13 @@ class OptSingle:
         #                        'maxiter':100,\
         #                        'gtol':1e-8})
         
-        res = minimize(self.obj_npy,\
-                       Tfoe0,method='Newton-CG',\
-                       jac=self.jac_npy,\
-                       hess=self.hess_npy,\
-                       options={'disp': False,\
-                                'maxiter':100,\
-                                'gtol':1e-8})
+        #res = minimize(self.obj_npy,\
+        #               Tfoe0,method='Newton-CG',\
+        #               jac=self.jac_npy,\
+        #               hess=self.hess_npy,\
+        #               options={'disp': False,\
+        #                        'maxiter':100,\
+        #                        'gtol':1e-8})
         
         return res.x
 

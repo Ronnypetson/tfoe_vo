@@ -45,6 +45,7 @@ def reproj_tc_foe(p,p_,T,foe,c):
     
     p_ = c_ @ p_
     z = torch.ones(1,1).double()
+    #foe = foe * 1.0 ###
     foe = torch.cat([foe,z],dim=0)
     foe = c_ @ foe
     d = depth_tc(p[:2],(p_-p)[:2],foe[:2])
@@ -73,7 +74,7 @@ def depth_tc(p,f,foe):
     '''
     mag = torch.norm(f,dim=0)
     mag = torch.clamp(mag,0.001)
-    dist = p-foe
+    dist = (p+f)-foe ### p+f
     dist = torch.norm(dist,dim=0)
     d = dist / mag
     return d

@@ -63,12 +63,16 @@ def plot_trajs(P,outfn,colors='gbr',glb=False):
             pts.append(p)
     pts = np.array(pts)
     
-    fig = plt.figure()
+    #fig = plt.figure()
+    fig, axs = plt.subplots(1) #3
     plt.axis('equal')
     
-    ax = fig.add_subplot(111)
+    #ax = fig.add_subplot(111)
+    #ax2 = fig.add_subplot(111)
     for i,p in enumerate(pts):
-        ax.plot(p[:,0],p[:,2],f'{colors[i]}.')
+        axs.plot(p[:,0],p[:,2],f'{colors[i]}.')
+        #axs[1].plot(p[:,0],p[:,1],f'{colors[i]}.')
+        #axs[2].plot(p[:,1],p[:,2],f'{colors[i]}.')
     
     plt.savefig(outfn)
     plt.close(fig)
@@ -95,7 +99,7 @@ class KpT0:
         self.camera_matrix = np.array([[718.8560, 0.0, 607.1928],
                                       [0.0, 718.8560, 185.2157],
                                       [0.0, 0.0, 1.0]])
-        self.feature_detector = cv2.FastFeatureDetector_create(threshold=60,
+        self.feature_detector = cv2.FastFeatureDetector_create(threshold=25,
                                                       nonmaxSuppression=True)
         self.lk_params = dict(winSize=(21, 21),
                          criteria=(cv2.TERM_CRITERIA_EPS |
@@ -166,7 +170,7 @@ if __name__ == '__main__':
     #seq_id = '2011_09_26_drive_0046_sync'
     #fn_re = f'/home/ronnypetson/Downloads/2011_09_26/{seq_id}/image_00/data/*.png'
     #fn_re = f'/home/ronnypetson/Downloads/kitti/image_0/*.png'
-    seq_id = '01'
+    seq_id = '05' #'01'
     bdir = '/home/ronnypetson/Downloads/kitti_seq/dataset/'
     kp = KpT0(376,1241,bdir,seq_id)
     c = kp.camera_matrix
@@ -190,15 +194,19 @@ if __name__ == '__main__':
         x_ = np.concatenate([x_,z],axis=0)
         
         opt = OptSingle(x,x_,c)
-        #T0 = SE3.from_matrix(T).log()
-        T0 = np.zeros(6)
-        foe0 = np.array([1241/2,376/2])
+        T0 = SE3.from_matrix(T).inv().log()
+        #T0 = 1e-3*np.random.randn(6) #np.zeros(6)
+        foe0 = np.array([1241.0/(2*1),376.0/(2*1)])
+        #foe0 = foe0 + 1e1*np.random.randn(2) ###
         Tfoe = opt.optimize(T0,foe0)
         T_ = Tfoe[:6]
+        print(Tfoe[6:])
         T_ = SE3.exp(T_).inv().as_matrix()
         T_ = norm_t(T_,normT)
         poses_.append(T_)
         
-        P = [poses_gt,poses,poses_]
-        plot_trajs(P,f'{seq_id}.png',glb=False)
+        if i%30 == 0:
+            P = [poses_gt,poses,poses_]
+            plot_trajs(P,f'{seq_id}.png',glb=False)
+        i += 1
 

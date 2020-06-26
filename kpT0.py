@@ -1,10 +1,13 @@
 import numpy as np
 import cv2
+import torch
 from liegroups import SE3
 from glob import glob
+from mpl_toolkits.mplot3d import Axes3D
 from matplotlib import pyplot as plt
 from opt import OptSingle
 import pykitti
+from reproj import depth_tc
 
 def homSE3tose3(R,t):
     ''' R is 3 x 3, t is 3 x 1
@@ -27,15 +30,45 @@ def T2traj(poses):
     p = np.eye(4)
     pts = [p[:,-1]]
     for T in poses:
-        #T_ = SE3.exp(T) #.inv()
-        #T_ = T_.as_matrix()
-        #p = T_ @ p
         p = p @ T
-        #p = np.linalg.inv(p) @ T_
         pts.append(p[:,-1])
     pts = np.array(pts)
-    #pts = pts[:,:,0]
     return pts
+
+def pt_cloud(p,p_,T,foe,scale,c,outfn):
+    ''' p is 2,N
+        p_ is 2,N
+        T is 4,4
+        foe is 2,1
+        scale is a scalar
+        c is 3,3
+    '''
+    p = p.permute(1,0)
+    p_ = p_.permute(1,0)
+    z = torch.ones(1,p.size(-1)).double()
+    z_ = torch.ones(1,1).double()
+    p = torch.cat([p,z],dim=0)
+    p_ = torch.cat([p_,z],dim=0)
+    foe = torch.cat([foe,z_],dim=0)
+    #print(p.size(),p_.size(),T.size(),foe.size(),scale,c.size())
+    
+    c_ = torch.inverse(c)
+    p = c_ @ p
+    p_ = c_ @ p_
+    foe = c_ @ foe
+    
+    d = depth_tc(p[:2],(p_-p)[:2],foe[:2])
+    d *= scale
+    
+    x = p * d
+    x = T[:3,:3] @ x + T[:3,3:]
+    x = x.detach().numpy()
+    
+    fig = plt.figure()
+    ax = fig.add_subplot(111, projection='3d')
+    ax.scatter(x[0,:], x[1,:], x[2,:], marker='.')
+    plt.savefig(outfn)
+    plt.close(fig)
 
 def plot_traj(poses,poses_,outfn):
     pts = T2traj(poses)
@@ -170,7 +203,7 @@ if __name__ == '__main__':
     #seq_id = '2011_09_26_drive_0046_sync'
     #fn_re = f'/home/ronnypetson/Downloads/2011_09_26/{seq_id}/image_00/data/*.png'
     #fn_re = f'/home/ronnypetson/Downloads/kitti/image_0/*.png'
-    seq_id = '05' #'01'
+    seq_id = '06' #'01'
     bdir = '/home/ronnypetson/Downloads/kitti_seq/dataset/'
     kp = KpT0(376,1241,bdir,seq_id)
     c = kp.camera_matrix
@@ -200,7 +233,8 @@ if __name__ == '__main__':
         #foe0 = foe0 + 1e1*np.random.randn(2) ###
         Tfoe = opt.optimize(T0,foe0)
         T_ = Tfoe[:6]
-        print(Tfoe[6:])
+        foe = Tfoe[6:]
+        print(foe)
         T_ = SE3.exp(T_).inv().as_matrix()
         T_ = norm_t(T_,normT)
         poses_.append(T_)
@@ -208,5 +242,14 @@ if __name__ == '__main__':
         if i%30 == 0:
             P = [poses_gt,poses,poses_]
             plot_trajs(P,f'{seq_id}.png',glb=False)
+            
+        if i%20 == 1:
+            scale = normT / (np.linalg.norm(T_[:3,3])+1e-8)
+            p = torch.from_numpy(p[kp.vids,0]).double()
+            p_ = p + torch.from_numpy(f[kp.vids,0]).double()
+            T_ = torch.from_numpy(T_).double()
+            foe = torch.from_numpy(foe).double().unsqueeze(-1)
+            c_tc = torch.from_numpy(c).double()
+            pt_cloud(p,p_,T_,foe,scale,c_tc,f'{seq_id}_pt_cloud.png')
         i += 1
 

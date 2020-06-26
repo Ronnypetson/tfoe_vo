@@ -35,7 +35,7 @@ def T2traj(poses):
     pts = np.array(pts)
     return pts
 
-def pt_cloud(p,p_,T,foe,scale,c,outfn):
+def pt_cloud(p,p_,T,foe,scale,c):
     ''' p is 2,N
         p_ is 2,N
         T is 4,4
@@ -50,7 +50,6 @@ def pt_cloud(p,p_,T,foe,scale,c,outfn):
     p = torch.cat([p,z],dim=0)
     p_ = torch.cat([p_,z],dim=0)
     foe = torch.cat([foe,z_],dim=0)
-    #print(p.size(),p_.size(),T.size(),foe.size(),scale,c.size())
     
     c_ = torch.inverse(c)
     p = c_ @ p
@@ -62,11 +61,27 @@ def pt_cloud(p,p_,T,foe,scale,c,outfn):
     
     x = p * d
     x = T[:3,:3] @ x + T[:3,3:]
-    x = x.detach().numpy()
+    #thresh_d = 5*torch.min(d)
+    #close = (d < thresh_d).nonzero()
+    #close = close.reshape(-1)
+    _,close = torch.topk(-d,k=10)
     
+    x = x[:,close]
+    x = x.detach().numpy()
+    return x
+
+def plot_pt_cloud(x,outfn):
     fig = plt.figure()
+    plt.axis('equal')
     ax = fig.add_subplot(111, projection='3d')
-    ax.scatter(x[0,:], x[1,:], x[2,:], marker='.')
+    ax.scatter(x[2,:], -x[0,:], x[1,:], marker='.')
+    
+    ax.set_xlabel('Z Label')
+    ax.set_ylabel('X Label')
+    ax.set_zlabel('Y Label')
+    
+    plt.show()
+    
     plt.savefig(outfn)
     plt.close(fig)
 
@@ -203,7 +218,7 @@ if __name__ == '__main__':
     #seq_id = '2011_09_26_drive_0046_sync'
     #fn_re = f'/home/ronnypetson/Downloads/2011_09_26/{seq_id}/image_00/data/*.png'
     #fn_re = f'/home/ronnypetson/Downloads/kitti/image_0/*.png'
-    seq_id = '06' #'01'
+    seq_id = '01' #'01'
     bdir = '/home/ronnypetson/Downloads/kitti_seq/dataset/'
     kp = KpT0(376,1241,bdir,seq_id)
     c = kp.camera_matrix
@@ -211,6 +226,8 @@ if __name__ == '__main__':
     poses_gt = []
     poses_ = []
     i = 0
+    pose0 = np.eye(4)
+    cloud_all = np.zeros((3,1))
     for p,f,T,Tgt in kp:
         normT = np.linalg.norm(Tgt[:3,3])
         T = norm_t(T,normT)
@@ -238,18 +255,23 @@ if __name__ == '__main__':
         T_ = SE3.exp(T_).inv().as_matrix()
         T_ = norm_t(T_,normT)
         poses_.append(T_)
+        pose0 = pose0 @ T_
         
         if i%30 == 0:
             P = [poses_gt,poses,poses_]
             plot_trajs(P,f'{seq_id}.png',glb=False)
-            
+        
+        scale = normT / (np.linalg.norm(T_[:3,3])+1e-8)
+        p = torch.from_numpy(p[kp.vids,0]).double()
+        p_ = p + torch.from_numpy(f[kp.vids,0]).double()
+        T_acc = torch.from_numpy(pose0).double()
+        foe = torch.from_numpy(foe).double().unsqueeze(-1)
+        c_tc = torch.from_numpy(c).double()
+        cloud = pt_cloud(p,p_,T_acc,foe,scale,c_tc)
+        cloud_all = np.concatenate([cloud_all,cloud],axis=1) # [:,:20]
+        
         if i%20 == 1:
-            scale = normT / (np.linalg.norm(T_[:3,3])+1e-8)
-            p = torch.from_numpy(p[kp.vids,0]).double()
-            p_ = p + torch.from_numpy(f[kp.vids,0]).double()
-            T_ = torch.from_numpy(T_).double()
-            foe = torch.from_numpy(foe).double().unsqueeze(-1)
-            c_tc = torch.from_numpy(c).double()
-            pt_cloud(p,p_,T_,foe,scale,c_tc,f'{seq_id}_pt_cloud.png')
+            plot_pt_cloud(np.array(cloud_all),f'{seq_id}_pt_cloud.svg')
+        
         i += 1
 

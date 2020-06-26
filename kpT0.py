@@ -74,16 +74,16 @@ def plot_pt_cloud(x,outfn):
     fig = plt.figure()
     plt.axis('equal')
     ax = fig.add_subplot(111, projection='3d')
-    ax.scatter(x[2,:], -x[0,:], x[1,:], marker='.')
-    
     ax.set_xlabel('Z Label')
     ax.set_ylabel('X Label')
     ax.set_zlabel('Y Label')
-    
+    ax.view_init(azim=177, elev=65)
+    ax.scatter(x[2,:], -x[0,:], x[1,:], marker='.')
+    ax_data = ax.plot([0],[0],[0], marker='.')[0]
     plt.show()
     
-    plt.savefig(outfn)
-    plt.close(fig)
+    #plt.savefig(outfn)
+    #plt.close(fig)
 
 def plot_traj(poses,poses_,outfn):
     pts = T2traj(poses)
@@ -133,17 +133,6 @@ class KpT0:
         self.size = (h,w)
         self.kitti = pykitti.odometry(basedir,seq)
         self.gt_odom = self.kitti.poses
-        
-        #fig = plt.figure()
-        #plt.axis('equal')
-        #pts = np.array(self.gt_odom)[:,:3,3]
-        #ax = fig.add_subplot(111)
-        #ax.plot(pts[:,0],pts[:,2],'g-')
-        #plt.savefig('testgt.png')
-        #plt.close(fig)
-        #input()
-        
-        #self.fns = sorted(glob(im_re),reverse=True)
         self.camera_matrix = np.array([[718.8560, 0.0, 607.1928],
                                       [0.0, 718.8560, 185.2157],
                                       [0.0, 0.0, 1.0]])
@@ -215,10 +204,7 @@ class KpT0:
             yield points, p1-points, T0, Tgt
 
 if __name__ == '__main__':
-    #seq_id = '2011_09_26_drive_0046_sync'
-    #fn_re = f'/home/ronnypetson/Downloads/2011_09_26/{seq_id}/image_00/data/*.png'
-    #fn_re = f'/home/ronnypetson/Downloads/kitti/image_0/*.png'
-    seq_id = '01' #'01'
+    seq_id = '06'
     bdir = '/home/ronnypetson/Downloads/kitti_seq/dataset/'
     kp = KpT0(376,1241,bdir,seq_id)
     c = kp.camera_matrix
@@ -228,6 +214,7 @@ if __name__ == '__main__':
     i = 0
     pose0 = np.eye(4)
     cloud_all = np.zeros((3,1))
+    
     for p,f,T,Tgt in kp:
         normT = np.linalg.norm(Tgt[:3,3])
         T = norm_t(T,normT)
@@ -270,7 +257,7 @@ if __name__ == '__main__':
         cloud = pt_cloud(p,p_,T_acc,foe,scale,c_tc)
         cloud_all = np.concatenate([cloud_all,cloud],axis=1) # [:,:20]
         
-        if i%20 == 1:
+        if i%80 == 79:
             plot_pt_cloud(np.array(cloud_all),f'{seq_id}_pt_cloud.svg')
         
         i += 1

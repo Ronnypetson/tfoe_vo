@@ -125,9 +125,9 @@ def plot_trajs(P, outfn, colors='gbr', glb=False):
     #ax = fig.add_subplot(111)
     #ax2 = fig.add_subplot(111)
     for i, p in enumerate(pts):
-        axs.plot(p[:, 0], p[:, 2], f'{colors[i]}.')
-        #axs[1].plot(p[:,0],p[:,1],f'{colors[i]}.')
-        #axs[2].plot(p[:,1],p[:,2],f'{colors[i]}.')
+        axs.plot(p[:, 0], p[:, 2], f'{colors[i]}-')
+        #axs[1].plot(p[:,0],p[:,1],f'{colors[i]}-')
+        #axs[2].plot(p[:,1],p[:,2],f'{colors[i]}-')
     
     plt.savefig(outfn)
     plt.close(fig)
@@ -177,13 +177,12 @@ class KpT0:
                 p1, st, err = cv2.calcOpticalFlowPyrLK(prev_image, image, points,
                                                        None, **lk_params)
 
-                self.avids = [j for j in range(len(st)) if st[j] == 1.0]
-
                 E, mask = cv2.findEssentialMat(p1, points, camera_matrix,
                                                cv2.RANSAC, 0.999, 0.1, None)
                 
                 self.vids = [j for j in range(len(mask)) if mask[j] == 1.0]
-                
+                self.avids = [j for j in range(len(st)) if st[j] == 1.0 and mask[j] == 0.0]
+
                 _, R, t, mask = cv2.recoverPose(E, p1, points, camera_matrix, mask=mask) # , mask=mask
                 T0 = np.eye(4)
                 T0[:3, :3] = R
@@ -217,7 +216,7 @@ class KpT0:
 
 
 if __name__ == '__main__':
-    seq_id = '01'
+    seq_id = '06'
     bdir = '/home/ronnypetson/Downloads/kitti_seq/dataset/'
     h,w = 376, 1241
     kp = KpT0(h, w, bdir, seq_id)

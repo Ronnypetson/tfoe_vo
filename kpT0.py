@@ -216,12 +216,12 @@ class KpT0:
 
 
 if __name__ == '__main__':
-    seq_id = '06'
+    seq_id = '05'
     bdir = '/home/ronnypetson/Downloads/kitti_seq/dataset/'
     h,w = 376, 1241
     kp = KpT0(h, w, bdir, seq_id)
     c = kp.camera_matrix
-    failure_eps = 1e-2
+    failure_eps = 5e-1
     poses = []
     poses_gt = []
     poses_ = []

@@ -85,7 +85,7 @@ def plot_pt_cloud(x, outfn):
     ax.set_zlabel('Y Label')
     ax.view_init(azim=177, elev=65)
     ax.scatter(x[2, :], -x[0, :], x[1, :], marker='.')
-    ax_data = ax.plot([0], [0], [0], marker='.')[0]
+    #ax_data = ax.plot([0], [0], [0], marker='.')[0]
     plt.show()
     
     #plt.savefig(outfn)
@@ -118,17 +118,25 @@ def plot_trajs(P, outfn, colors='gbr', glb=False):
         for p in P:
             pts.append(p)
     pts = np.array(pts)
+
+    #fig, axs = plt.subplots(3) #3
+    fig = plt.figure()
+    c = 'gbr'
+    ax = fig.add_subplot(111, projection='3d')
+    ax.set_xlabel('Z Label')
+    ax.set_ylabel('X Label')
+    ax.set_zlabel('Y Label')
+    ax.view_init(azim=177, elev=65)
+
+    #plt.axis('equal')
     
-    #fig = plt.figure()
-    fig, axs = plt.subplots(3) #3
-    plt.axis('equal')
-    
-    #ax = fig.add_subplot(111)
-    #ax2 = fig.add_subplot(111)
     for i, p in enumerate(pts):
-        axs[0].plot(p[:, 0], p[:, 2], f'{colors[i]}-')
-        axs[1].plot(p[:, 0], p[:, 1], f'{colors[i]}-')
-        axs[2].plot(p[:, 1], p[:, 2], f'{colors[i]}-')
+        ax.plot(p[:, 2], -p[:, 0], p[:, 1], f'{c[i]}-')
+        #ax.scatter(p[:, 2], -p[:, 0], p[:, 1], marker='.', c=c[i])
+
+        #axs[0].plot(p[:, 0], p[:, 2], f'{colors[i]}-')
+        #axs[1].plot(p[:, 0], p[:, 1], f'{colors[i]}-')
+        #axs[2].plot(p[:, 1], p[:, 2], f'{colors[i]}-')
     
     plt.savefig(outfn)
     plt.close(fig)
@@ -219,7 +227,7 @@ class KpT0:
 
 
 if __name__ == '__main__':
-    seq_id = 'V2_01_easy' #'MH_01_easy'
+    seq_id = 'MH_01_easy' # 'V2_01_easy'
     bdir = '/home/ronnypetson/Downloads/'
     h, w = 480, 752
     kp = KpT0(h, w, bdir, seq_id)
@@ -249,8 +257,8 @@ if __name__ == '__main__':
         x_ = np.concatenate([x_, z], axis=0)
         
         opt = OptSingle(x, x_, c)
-        #T0 = SE3.from_matrix(T).inv().log()
-        T0 = np.zeros(6)
+        T0 = SE3.from_matrix(T).inv().log()
+        #T0 = np.zeros(6)
         foe0 = np.array([w/2.0, h/2.0])
         #foe0 = foe0 + 1e1*np.random.randn(2) ###
         Tfoe = opt.optimize(T0, foe0)

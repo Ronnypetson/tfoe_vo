@@ -1,33 +1,49 @@
 import numpy as np
 import cv2
 from liegroups import SO3
+from matplotlib import pyplot as plt
 
 
-def cam0(dir, stampsfn):
+def cam0(dir, stampsfn, c, dist):
     with open(stampsfn, 'r') as f:
         lines = f.read().split('\n')
         for l in lines[1:]:
             fn = l.split(',')[-1]
             imfn = f'{dir}/{fn}'
             im = cv2.imread(imfn, 0)
+            im = cv2.undistort(im, c, dist)
             yield im
 
 
 class EuRoC:
     def __init__(self, basedir, seq_id):
-        # '/home/ronnypetson/Downloads/'
         dir = f'{basedir}/{seq_id}/mav0/cam0/data/'
         stampsfn = f'{basedir}/{seq_id}/mav0/cam0/data.csv'
         odomfn = f'{basedir}/{seq_id}/mav0/state_groundtruth_estimate0/data.csv'
-        self.cam0 = cam0(dir, stampsfn)
+        self.c0 = np.array([[458.654, 0.0, 367.215],
+                            [0.0, 457.296, 248.375],
+                            [0.0, 0.0,     1.0]])
+        self.TR = np.array([[0.0148655429818, -0.999880929698, 0.00414029679422, -0.0216401454975],
+                            [0.999557249008, 0.0149672133247, 0.025715529948, -0.064676986768],
+                            [-0.0257744366974, 0.00375618835797, 0.999660727178, 0.00981073058949],
+                            [0.0, 0.0, 0.0, 1.0]])
+        # radial-tangential distortion
+        self.dist = np.array([-0.28340811, 0.07395907, 0.00019359, 1.76187114e-05])
+        self.cam0 = cam0(dir, stampsfn, self.c0, self.dist)
         self.poses = np.array(self._get_odom(odomfn))
 
     def _get_odom(self, odomfn):
-        T_ = np.eye(4)
-        odom = [T_]
+        T_ = np.zeros((4, 4))
+        T_[0, 1] = 1.0
+        T_[1, 2] = 1.0
+        T_[2, 0] = 1.0
+        T_[3, 3] = 1.0
+        self.T_ = T_
+
+        odom = []
         with open(odomfn, 'r') as f:
             lines = f.read().split('\n')
-            for l in lines[1:]:
+            for i, l in enumerate(lines[1:]):
                 T = l.split(',')[1:8]
                 if len(T) == 7:
                     T = [float(t) for t in T]
@@ -40,10 +56,7 @@ class EuRoC:
                     T = np.eye(4)
                     T[:3, :3] = Tr
                     T[:3, 3] = Tt
-                    T_ = T_ @ T
-                    odom.append(T_)
+                    T = T @ self.TR
+                    odom.append(T)
         return odom
 
-
-if __name__ == '__main__':
-    euroc = EuRoC()

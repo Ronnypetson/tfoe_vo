@@ -126,9 +126,9 @@ def plot_trajs(P, outfn, colors='gbr', glb=False):
     #ax = fig.add_subplot(111)
     #ax2 = fig.add_subplot(111)
     for i, p in enumerate(pts):
-        axs[0].plot(p[:, 0], p[:, 2], f'{colors[i]}.')
-        axs[1].plot(p[:, 0], p[:, 1], f'{colors[i]}.')
-        axs[2].plot(p[:, 1], p[:, 2], f'{colors[i]}.')
+        axs[0].plot(p[:, 0], p[:, 2], f'{colors[i]}-')
+        axs[1].plot(p[:, 0], p[:, 1], f'{colors[i]}-')
+        axs[2].plot(p[:, 1], p[:, 2], f'{colors[i]}-')
     
     plt.savefig(outfn)
     plt.close(fig)
@@ -142,6 +142,7 @@ class KpT0:
         self.size = (h, w)
         self.euroc = EuRoC(bdir, seq_id) #pykitti.odometry(basedir, seq)
         self.gt_odom = self.euroc.poses
+        self.Tc = self.euroc.T_
         self.camera_matrix = np.array([[458.654, 0.0, 367.215],
                                        [0.0, 457.296, 248.375],
                                        [0.0, 0.0,     1.0]])
@@ -165,15 +166,12 @@ class KpT0:
         prev_image = cv2.resize(prev_image, (w, h))
         prev_id = 0
         for i, image in enumerate(self.euroc.cam0):
+            print(i)
             image = np.array(image)
-            #image = cv2.resize(image, (w, h))
 
-            #image = cv2.imread(fns[i],0)
-            #prev_image = cv2.imread(fns[i-1],0)
-            
             prev_keypoint = feature_detector.detect(prev_image, None)
             points = np.array([[x.pt] for x in prev_keypoint], dtype=np.float32)
-            
+
             try:
                 p1, st, err = cv2.calcOpticalFlowPyrLK(prev_image, image, points,
                                                        None, **lk_params)
@@ -221,7 +219,7 @@ class KpT0:
 
 
 if __name__ == '__main__':
-    seq_id = 'MH_01_easy'
+    seq_id = 'V2_01_easy' #'MH_01_easy'
     bdir = '/home/ronnypetson/Downloads/'
     h, w = 480, 752
     kp = KpT0(h, w, bdir, seq_id)
@@ -235,6 +233,7 @@ if __name__ == '__main__':
     cloud_all = np.zeros((3, 1))
     
     for p, f, T, Tgt in kp:
+        #T = T @ kp.Tc
         normT = np.linalg.norm(Tgt[:3, 3])
         T = norm_t(T, normT)
         
@@ -250,8 +249,8 @@ if __name__ == '__main__':
         x_ = np.concatenate([x_, z], axis=0)
         
         opt = OptSingle(x, x_, c)
-        T0 = SE3.from_matrix(T).inv().log()
-        #T0 = 1e-3*np.random.randn(6) #np.zeros(6)
+        #T0 = SE3.from_matrix(T).inv().log()
+        T0 = np.zeros(6)
         foe0 = np.array([w/2.0, h/2.0])
         #foe0 = foe0 + 1e1*np.random.randn(2) ###
         Tfoe = opt.optimize(T0, foe0)
@@ -277,6 +276,7 @@ if __name__ == '__main__':
         foe = Tfoe[6:]
         print(foe)
         T_ = SE3.exp(T_).inv().as_matrix()
+        #T_ = T_ @ kp.Tc
         T_ = norm_t(T_, normT)
         poses_.append(T_)
         pose0 = pose0 @ T_

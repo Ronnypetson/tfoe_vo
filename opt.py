@@ -30,9 +30,9 @@ class OptSingle:
         T = T.as_matrix()
         c = self.c
         c_ = self.c_
-        x_rep = reproj_tc_foe(torch.from_numpy(self.x),\
-                              torch.from_numpy(self.x_),\
-                              T,foe,c)
+        x_rep = reproj_tc_foe(torch.from_numpy(self.x),
+                              torch.from_numpy(self.x_),
+                              T, foe, c)
         y = c_ @ torch.from_numpy(self.x_)-x_rep
         y = torch.mean(y**2.0)
         return y

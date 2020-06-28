@@ -8,6 +8,7 @@ from matplotlib import pyplot as plt
 from opt import OptSingle
 import pykitti
 from reproj import depth_tc
+from euroc.loader import EuRoC
 
 
 def homSE3tose3(R, t):
@@ -119,15 +120,15 @@ def plot_trajs(P, outfn, colors='gbr', glb=False):
     pts = np.array(pts)
     
     #fig = plt.figure()
-    fig, axs = plt.subplots(1) #3
+    fig, axs = plt.subplots(3) #3
     plt.axis('equal')
     
     #ax = fig.add_subplot(111)
     #ax2 = fig.add_subplot(111)
     for i, p in enumerate(pts):
-        axs.plot(p[:, 0], p[:, 2], f'{colors[i]}-')
-        #axs[1].plot(p[:,0],p[:,1],f'{colors[i]}-')
-        #axs[2].plot(p[:,1],p[:,2],f'{colors[i]}-')
+        axs[0].plot(p[:, 0], p[:, 2], f'{colors[i]}.')
+        axs[1].plot(p[:, 0], p[:, 1], f'{colors[i]}.')
+        axs[2].plot(p[:, 1], p[:, 2], f'{colors[i]}.')
     
     plt.savefig(outfn)
     plt.close(fig)
@@ -136,14 +137,14 @@ def plot_trajs(P, outfn, colors='gbr', glb=False):
 class KpT0:
     ''' Iterator class for returning key-points and pose initialization
     '''
-    def __init__(self, h, w, basedir, seq):
+    def __init__(self, h, w, bdir, seq_id):
         super().__init__()
         self.size = (h, w)
-        self.kitti = pykitti.odometry(basedir, seq)
-        self.gt_odom = self.kitti.poses
-        self.camera_matrix = np.array([[718.8560, 0.0, 607.1928],
-                                       [0.0, 718.8560, 185.2157],
-                                       [0.0, 0.0,      1.0]])
+        self.euroc = EuRoC(bdir, seq_id) #pykitti.odometry(basedir, seq)
+        self.gt_odom = self.euroc.poses
+        self.camera_matrix = np.array([[458.654, 0.0, 367.215],
+                                       [0.0, 457.296, 248.375],
+                                       [0.0, 0.0,     1.0]])
         self.feature_detector = cv2.FastFeatureDetector_create(threshold=25,
                                                                nonmaxSuppression=True)
         self.lk_params = dict(winSize=(21, 21),
@@ -160,12 +161,12 @@ class KpT0:
         
         pts = []
 
-        prev_image = np.array(next(self.kitti.cam0))
+        prev_image = np.array(next(self.euroc.cam0))
         prev_image = cv2.resize(prev_image, (w, h))
         prev_id = 0
-        for i, image in enumerate(self.kitti.cam0):
+        for i, image in enumerate(self.euroc.cam0):
             image = np.array(image)
-            image = cv2.resize(image, (w, h))
+            #image = cv2.resize(image, (w, h))
 
             #image = cv2.imread(fns[i],0)
             #prev_image = cv2.imread(fns[i-1],0)
@@ -183,7 +184,9 @@ class KpT0:
                 self.vids = [j for j in range(len(mask)) if mask[j] == 1.0]
                 self.avids = [j for j in range(len(st)) if st[j] == 1.0 and mask[j] == 0.0]
                 if len(self.avids) < 3:
-                    self.avids = [j for j in range(len(points)) if st[j] == 1.0]
+                    self.avids = [j for j in range(len(points)) if mask[j] == 0.0]
+                if len(self.avids) < 3:
+                    self.avids = [j for j in range(len(points))]
 
                 _, R, t, mask = cv2.recoverPose(E, p1, points, camera_matrix, mask=mask) # , mask=mask
                 T0 = np.eye(4)
@@ -218,9 +221,9 @@ class KpT0:
 
 
 if __name__ == '__main__':
-    seq_id = '05'
-    bdir = '/home/ronnypetson/Downloads/kitti_seq/dataset/'
-    h, w = 376, 1241
+    seq_id = 'MH_01_easy'
+    bdir = '/home/ronnypetson/Downloads/'
+    h, w = 480, 752
     kp = KpT0(h, w, bdir, seq_id)
     c = kp.camera_matrix
     failure_eps = 5e-1
@@ -280,7 +283,7 @@ if __name__ == '__main__':
         
         if i % 30 == 29:
             P = [poses_gt, poses, poses_]
-            plot_trajs(P, f'{seq_id}.png', glb=False)
+            plot_trajs(P, f'euroc_{seq_id}.png', glb=False)
 
         if False:
             scale = normT / (np.linalg.norm(T_[:3, 3])+1e-8)
@@ -293,6 +296,6 @@ if __name__ == '__main__':
             cloud_all = np.concatenate([cloud_all, cloud], axis=1) # [:,:20]
         
         if i % 80 == 79 and False:
-            plot_pt_cloud(np.array(cloud_all), f'{seq_id}_pt_cloud.svg')
+            plot_pt_cloud(np.array(cloud_all), f'euroc_{seq_id}_pt_cloud.svg')
         
         i += 1

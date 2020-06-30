@@ -62,7 +62,7 @@ def pt_cloud(p, p_, T, foe, scale, c):
     
     d = depth_tc(p[:2], (p_-p)[:2], foe[:2])
     d *= scale
-    
+
     x = p * d
     x = T[:3, :3] @ x + T[:3, 3:]
     #thresh_d = 5*torch.min(d)
@@ -228,6 +228,7 @@ if __name__ == '__main__':
     poses_gt = []
     poses_ = []
     i = 0
+    show_cloud = True
     pose0 = np.eye(4)
     cloud_all = np.zeros((3, 1))
     
@@ -280,9 +281,9 @@ if __name__ == '__main__':
         
         if i % 30 == 29:
             P = [poses_gt, poses, poses_]
-            plot_trajs(P, f'{seq_id}.png', glb=False)
+            plot_trajs(P, f'{seq_id}.svg', glb=False)
 
-        if False:
+        if show_cloud:
             scale = normT / (np.linalg.norm(T_[:3, 3])+1e-8)
             p = torch.from_numpy(p[kp.vids, 0]).double()
             p_ = p + torch.from_numpy(f[kp.vids, 0]).double()
@@ -292,7 +293,7 @@ if __name__ == '__main__':
             cloud = pt_cloud(p, p_, T_acc, foe, scale, c_tc)
             cloud_all = np.concatenate([cloud_all, cloud], axis=1) # [:,:20]
         
-        if i % 80 == 79 and False:
+        if i % 80 == 79 and show_cloud:
             plot_pt_cloud(np.array(cloud_all), f'{seq_id}_pt_cloud.svg')
         
         i += 1

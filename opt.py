@@ -90,6 +90,7 @@ class OptSingle:
         # .float()
         y = c_ @ torch.from_numpy(self.x_)-x_rep
 
+        #y = torch.mean(torch.abs(y))
         y = torch.mean(y**2.0)
         #y = F.smooth_l1_loss(c_ @ torch.from_numpy(self.x_).float(),x_rep)
         #y = y + torch.abs(1.0 - torch.norm(Tfoe_[:3]))
@@ -117,7 +118,7 @@ class OptSingle:
         bounds = []
         if freeze:
             for par in Tfoe0[:6]:
-                bounds.append((par-1e-4, par+1e-4))
+                bounds.append((par-1e-10, par+1e-10))
             for par in Tfoe0[6:]:
                 bounds.append((None, None))
         else:

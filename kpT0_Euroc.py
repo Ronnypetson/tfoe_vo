@@ -63,14 +63,13 @@ def pt_cloud(p, p_, T, foe, scale, c):
     
     d = depth_tc(p[:2], (p_-p)[:2], foe[:2])
     d *= scale
+    d = torch.clamp(d, max=5.0)
     
     x = p * d
     x = T[:3, :3] @ x + T[:3, 3:]
-    #thresh_d = 5*torch.min(d)
-    #close = (d < thresh_d).nonzero()
-    #close = close.reshape(-1)
-    _, close = torch.topk(-d, k=10)
-    
+
+    _, close = torch.topk(-d, k=1)
+
     x = x[:, close]
     x = x.detach().numpy()
     return x
@@ -151,11 +150,15 @@ class KpT0:
         self.euroc = EuRoC(bdir, seq_id) #pykitti.odometry(basedir, seq)
         self.gt_odom = self.euroc.poses
         self.Tc = self.euroc.T_
-        self.camera_matrix = np.array([[458.654, 0.0, 367.215],
-                                       [0.0, 457.296, 248.375],
-                                       [0.0, 0.0,     1.0]])
-        self.feature_detector = cv2.FastFeatureDetector_create(threshold=25,
-                                                               nonmaxSuppression=True)
+        self.camera_matrix = self.euroc.newc
+        #self.camera_matrix = np.array([[458.654, 0.0, 367.215],
+        #                               [0.0, 457.296, 248.375],
+        #                               [0.0, 0.0,     1.0]])
+
+        #self.feature_detector = cv2.FastFeatureDetector_create(threshold=25,
+        #                                                       nonmaxSuppression=True)
+        self.feature_detector = cv2.ORB_create()
+        self.bf = cv2.BFMatcher(cv2.NORM_HAMMING, crossCheck=True)
         self.lk_params = dict(winSize=(21, 21),
                               criteria=(cv2.TERM_CRITERIA_EPS |
                                    cv2.TERM_CRITERIA_COUNT, 30, 0.03))
@@ -166,6 +169,7 @@ class KpT0:
         lk_params = self.lk_params
         h, w = self.size
         gt_odom = self.gt_odom
+        bf = self.bf
         #fns = self.fns
         
         pts = []
@@ -177,57 +181,81 @@ class KpT0:
             print(i)
             image = np.array(image)
 
-            prev_keypoint = feature_detector.detect(prev_image, None)
+            #prev_keypoint = feature_detector.detect(prev_image, None)
+            prev_keypoint, des1 = feature_detector.detectAndCompute(prev_image, None)
+            curr_keypoint, des2 = feature_detector.detectAndCompute(image, None)
+
+            matches = bf.match(des1, des2)
+            matches = sorted(matches, key=lambda x: x.distance)
+            #img3 = np.zeros(image.shape,dtype=image.dtype)
+            #img3 = cv2.drawMatches(prev_image, prev_keypoint,
+            #                       image, curr_keypoint, matches[:10],
+            #                       outImg=img3, flags=2)
+            #plt.imshow(img3)
+            #plt.show()
+
             points = np.array([[x.pt] for x in prev_keypoint], dtype=np.float32)
 
             try:
-                p1, st, err = cv2.calcOpticalFlowPyrLK(prev_image, image, points,
-                                                       None, **lk_params)
+                #p1, st, err = cv2.calcOpticalFlowPyrLK(prev_image, image, points,
+                #                                       None, **lk_params)
+
+                kp1 = []
+                kp2 = []
+                for j, m in enumerate(matches):
+                    t = m.trainIdx
+                    q = m.queryIdx
+                    pt1 = [prev_keypoint[q].pt[0], prev_keypoint[q].pt[1]]
+                    pt1 = np.array(pt1)
+                    pt2 = [curr_keypoint[t].pt[0], curr_keypoint[t].pt[1]]
+                    pt2 = np.array(pt2)
+                    kp1.append(pt1)
+                    kp2.append(pt2)
+                p1 = np.array(kp2)
+                p1 = np.expand_dims(p1, axis=1)
+                points = np.array(kp1)
+                points = np.expand_dims(points, axis=1)
 
                 E, mask = cv2.findEssentialMat(p1, points, camera_matrix,
-                                               cv2.RANSAC, 0.999, 0.1, None)
-                
+                                               cv2.RANSAC, 0.999, 0.1, mask=None) # mask=None
+
                 self.vids = [j for j in range(len(mask)) if mask[j] == 1.0]
-                self.avids = [j for j in range(len(st)) if st[j] == 1.0 and mask[j] == 0.0]
+                self.avids = [j for j in range(len(mask)) if mask[j] == 0.0]
                 if len(self.avids) < 3:
                     self.avids = [j for j in range(len(points)) if mask[j] == 0.0]
                 if len(self.avids) < 3:
                     self.avids = [j for j in range(len(points))]
 
-                _, R, t, mask = cv2.recoverPose(E, p1, points, camera_matrix, mask=mask) # , mask=mask
+                _, R, t, mask = cv2.recoverPose(E, p1, points, camera_matrix, mask=None) #
+
+                #R1, R2, t0 = cv2.decomposeEssentialMat(E)
+                #if np.trace(R1) > np.trace(R2):
+                #    R = R1
+                #else:
+                #    R = R2
+
                 T0 = np.eye(4)
                 T0[:3, :3] = R
                 T0[:3, 3:] = t
-                #T0 = np.linalg.inv(T0)
+
                 if i == 0:
                     T0 = np.eye(4)
-                #T0 = homSE3tose3(T0[:3,:3],T0[:3,3:])
-                #T0 = homSE3tose3(R,t)
-                #T0 = SE3.exp(T0).as_matrix()
-                
+
                 inert = np.linalg.inv(gt_odom[prev_id])
-                #Tgt = gt_odom[i] @ inert
                 Tgt = inert @ gt_odom[i]
-                #Tgt = gt_odom[prev_id] @ Tgt
-                #Tgt = homSE3tose3(Tgt[:3,:3],Tgt[:3,3:])
-                
-                #normT = np.linalg.norm(Tgt[:3,3])
-                #T0 = norm_t(T0,normT)
-                #pts.append(Tgt)
-                #plot_trajs([pts],'testgt_.png',glb=False)
-                
+
                 prev_image = image
                 prev_id = i
                 
             except cv2.error as e:
                 print(e)
-                yield None, None, None
+                yield None, None, None, None
             
             yield points, p1-points, T0, Tgt
 
 
 if __name__ == '__main__':
-    seq_id = 'MH_01_easy' # 'V2_01_easy'
+    seq_id = 'V2_01_easy' # 'MH_01_easy' #
     bdir = '/home/ronnypetson/Downloads/'
     h, w = 480, 752
     kp = KpT0(h, w, bdir, seq_id)
@@ -237,14 +265,15 @@ if __name__ == '__main__':
     poses_gt = []
     poses_ = []
     i = 0
+    show_cloud = False
     pose0 = np.eye(4)
     cloud_all = np.zeros((3, 1))
     
     for p, f, T, Tgt in kp:
-        #T = T @ kp.Tc
         normT = np.linalg.norm(Tgt[:3, 3])
         T = norm_t(T, normT)
-        
+        T[:3, 3] = Tgt[:3, 3]
+
         poses.append(T)
         poses_gt.append(Tgt)
         
@@ -257,12 +286,14 @@ if __name__ == '__main__':
         x_ = np.concatenate([x_, z], axis=0)
         
         opt = OptSingle(x, x_, c)
-        T0 = SE3.from_matrix(T).inv().log()
+
+        #T0 = SE3.from_matrix(T).inv().log()
+        T0 = SE3.from_matrix(Tgt).inv().log()
         #T0 = np.zeros(6)
         foe0 = np.array([w/2.0, h/2.0])
         #foe0 = foe0 + 1e1*np.random.randn(2) ###
         Tfoe = opt.optimize(T0, foe0)
-
+        print(opt.min_obj)
         if opt.min_obj > failure_eps:
             print('Initialization failure.')
             x = p[kp.avids, 0, :].transpose(1, 0)  #
@@ -284,7 +315,6 @@ if __name__ == '__main__':
         foe = Tfoe[6:]
         print(foe)
         T_ = SE3.exp(T_).inv().as_matrix()
-        #T_ = T_ @ kp.Tc
         T_ = norm_t(T_, normT)
         poses_.append(T_)
         pose0 = pose0 @ T_
@@ -293,7 +323,7 @@ if __name__ == '__main__':
             P = [poses_gt, poses, poses_]
             plot_trajs(P, f'euroc_{seq_id}.png', glb=False)
 
-        if False:
+        if show_cloud:
             scale = normT / (np.linalg.norm(T_[:3, 3])+1e-8)
             p = torch.from_numpy(p[kp.vids, 0]).double()
             p_ = p + torch.from_numpy(f[kp.vids, 0]).double()
@@ -303,7 +333,7 @@ if __name__ == '__main__':
             cloud = pt_cloud(p, p_, T_acc, foe, scale, c_tc)
             cloud_all = np.concatenate([cloud_all, cloud], axis=1) # [:,:20]
         
-        if i % 80 == 79 and False:
+        if i % 40 == 39 and show_cloud:
             plot_pt_cloud(np.array(cloud_all), f'euroc_{seq_id}_pt_cloud.svg')
         
         i += 1

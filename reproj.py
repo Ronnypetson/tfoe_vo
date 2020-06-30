@@ -42,18 +42,17 @@ def reproj_tc_foe(p, p_, T, foe, c):
     '''
     c_ = torch.inverse(c)
     p = c_ @ p
-    
     p_ = c_ @ p_
     z = torch.ones(1, 1).double()
-    #foe = foe * 1.0 ###
     foe = torch.cat([foe, z], dim=0)
     foe = c_ @ foe
+
     d = depth_tc(p[:2], (p_-p)[:2], foe[:2])
-    
     x = p * d
     x_ = T[:3, :3] @ x + T[:3, 3:]
     p_rep = x_ / x_[-1:]
-    #p_rep = c @ p_rep
+
+    ##p_rep = c @ p_rep
     return p_rep
 
 def depth(p,f,foe):
@@ -67,15 +66,16 @@ def depth(p,f,foe):
     d = dist / mag
     return d
 
-def depth_tc(p,f,foe):
+
+def depth_tc(p, f, foe):
     ''' p is 2xN
         f is 2xN (flow)
         foe is 2x1
     '''
-    mag = torch.norm(f,dim=0)
-    mag = torch.clamp(mag,0.001)
+    mag = torch.norm(f, dim=0)
+    mag = torch.clamp(mag, 1e-4)
     dist = (p+f)-foe ### p+f
-    dist = torch.norm(dist,dim=0)
+    dist = torch.norm(dist, dim=0)
     d = dist / mag
     return d
 

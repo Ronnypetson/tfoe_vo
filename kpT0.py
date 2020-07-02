@@ -39,6 +39,18 @@ def T2traj(poses):
     return pts
 
 
+def save_poses(p, outfn):
+    ''' p is in homogeneous format
+    '''
+    with open(outfn, 'w') as f:
+        for T in p:
+            T_ = T.reshape(-1)[:12]
+            T_ = T_.tolist()
+            T_ = [str(t) for t in T_]
+            T_ = ' '.join(T_) + '\n'
+            f.write(T_)
+
+
 def pt_cloud(p, p_, T, foe, scale, c):
     ''' p is 2,N
         p_ is 2,N
@@ -217,8 +229,8 @@ class KpT0:
             yield points, p1-points, T0, Tgt
 
 
-if __name__ == '__main__':
-    seq_id = '05'
+def main():
+    seq_id = '06'
     bdir = '/home/ronnypetson/Downloads/kitti_seq/dataset/'
     h, w = 376, 1241
     kp = KpT0(h, w, bdir, seq_id)
@@ -230,70 +242,80 @@ if __name__ == '__main__':
     i = 0
     show_cloud = True
     pose0 = np.eye(4)
+    W_poses = []
     cloud_all = np.zeros((3, 1))
-    
-    for p, f, T, Tgt in kp:
-        normT = np.linalg.norm(Tgt[:3, 3])
-        T = norm_t(T, normT)
-        
-        poses.append(T)
-        poses_gt.append(Tgt)
-        
-        x = p[kp.vids, 0, :].transpose(1, 0) #
-        z = np.ones((1, x.shape[-1]))
-        x = np.concatenate([x, z], axis=0)
-        
-        x_ = p + f
-        x_ = x_[kp.vids, 0, :].transpose(1, 0) # kp.vids
-        x_ = np.concatenate([x_, z], axis=0)
-        
-        opt = OptSingle(x, x_, c)
-        T0 = SE3.from_matrix(T).inv().log()
-        #T0 = 1e-3*np.random.randn(6) #np.zeros(6)
-        foe0 = np.array([w/2.0, h/2.0])
-        #foe0 = foe0 + 1e1*np.random.randn(2) ###
-        Tfoe = opt.optimize(T0, foe0)
 
-        if opt.min_obj > failure_eps:
-            print('Initialization failure.')
-            x = p[kp.avids, 0, :].transpose(1, 0)  #
+    try:
+        for p, f, T, Tgt in kp:
+            normT = np.linalg.norm(Tgt[:3, 3])
+            T = norm_t(T, normT)
+
+            poses.append(T)
+            poses_gt.append(Tgt)
+
+            x = p[kp.vids, 0, :].transpose(1, 0) #
             z = np.ones((1, x.shape[-1]))
             x = np.concatenate([x, z], axis=0)
 
             x_ = p + f
-            x_ = x_[kp.avids, 0, :].transpose(1, 0)  # kp.vids
+            x_ = x_[kp.vids, 0, :].transpose(1, 0) # kp.vids
             x_ = np.concatenate([x_, z], axis=0)
 
             opt = OptSingle(x, x_, c)
-            T0 = np.zeros(6)
-            foe0 = np.array([w / 2.0, h / 2.0])
-            # foe0 = foe0 + 1e1*np.random.randn(2) ###
-            Tfoe = opt.optimize(T0, foe0, freeze=False)
-            print(f'New x0 status: {opt.min_obj <= failure_eps}')
+            T0 = SE3.from_matrix(T).inv().log()
+            #T0 = 1e-3*np.random.randn(6) #np.zeros(6)
+            foe0 = np.array([w/2.0, h/2.0])
+            #foe0 = foe0 + 1e1*np.random.randn(2) ###
+            Tfoe = opt.optimize(T0, foe0)
 
-        T_ = Tfoe[:6]
-        foe = Tfoe[6:]
-        print(foe)
-        T_ = SE3.exp(T_).inv().as_matrix()
-        T_ = norm_t(T_, normT)
-        poses_.append(T_)
-        pose0 = pose0 @ T_
-        
-        if i % 30 == 29:
-            P = [poses_gt, poses, poses_]
-            plot_trajs(P, f'{seq_id}.svg', glb=False)
+            if opt.min_obj > failure_eps:
+                print('Initialization failure.')
+                x = p[kp.avids, 0, :].transpose(1, 0)  #
+                z = np.ones((1, x.shape[-1]))
+                x = np.concatenate([x, z], axis=0)
 
-        if show_cloud:
-            scale = normT / (np.linalg.norm(T_[:3, 3])+1e-8)
-            p = torch.from_numpy(p[kp.vids, 0]).double()
-            p_ = p + torch.from_numpy(f[kp.vids, 0]).double()
-            T_acc = torch.from_numpy(pose0).double()
-            foe = torch.from_numpy(foe).double().unsqueeze(-1)
-            c_tc = torch.from_numpy(c).double()
-            cloud = pt_cloud(p, p_, T_acc, foe, scale, c_tc)
-            cloud_all = np.concatenate([cloud_all, cloud], axis=1) # [:,:20]
-        
-        if i % 80 == 79 and show_cloud:
-            plot_pt_cloud(np.array(cloud_all), f'{seq_id}_pt_cloud.svg')
-        
-        i += 1
+                x_ = p + f
+                x_ = x_[kp.avids, 0, :].transpose(1, 0)  # kp.vids
+                x_ = np.concatenate([x_, z], axis=0)
+
+                opt = OptSingle(x, x_, c)
+                T0 = np.zeros(6)
+                foe0 = np.array([w / 2.0, h / 2.0])
+                # foe0 = foe0 + 1e1*np.random.randn(2) ###
+                Tfoe = opt.optimize(T0, foe0, freeze=False)
+                print(f'New x0 status: {opt.min_obj <= failure_eps}')
+
+            T_ = Tfoe[:6]
+            foe = Tfoe[6:]
+            print(foe)
+            T_ = SE3.exp(T_).inv().as_matrix()
+            T_ = norm_t(T_, normT)
+            poses_.append(T_)
+            pose0 = pose0 @ T_
+            W_poses.append(pose0)
+
+            if i % 30 == 29:
+                P = [poses_gt, poses, poses_]
+                plot_trajs(P, f'{seq_id}.svg', glb=False)
+
+            if show_cloud:
+                scale = normT / (np.linalg.norm(T_[:3, 3])+1e-8)
+                p = torch.from_numpy(p[kp.vids, 0]).double()
+                p_ = p + torch.from_numpy(f[kp.vids, 0]).double()
+                T_acc = torch.from_numpy(pose0).double()
+                foe = torch.from_numpy(foe).double().unsqueeze(-1)
+                c_tc = torch.from_numpy(c).double()
+                cloud = pt_cloud(p, p_, T_acc, foe, scale, c_tc)
+                cloud_all = np.concatenate([cloud_all, cloud], axis=1) # [:,:20]
+
+            if i % 80 == 79 and show_cloud:
+                plot_pt_cloud(np.array(cloud_all), f'{seq_id}_pt_cloud.svg')
+
+            i += 1
+    except KeyboardInterrupt as e:
+        save_poses(W_poses, f'odom/KITTI_{seq_id}.txt')
+        raise e
+
+
+if __name__ == '__main__':
+    main()

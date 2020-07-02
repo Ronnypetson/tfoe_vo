@@ -65,7 +65,7 @@ def depth_tc(p, f, foe):
         foe is 2x1
     '''
     mag = torch.norm(f, dim=0)
-    mag = torch.clamp(mag, 1e-3)
+    mag = torch.clamp(mag, 1e-3) # 1e-3
     dist = (p+f)-foe
     dist = torch.norm(dist, dim=0)
     d = dist / mag

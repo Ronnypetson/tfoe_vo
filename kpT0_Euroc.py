@@ -67,14 +67,15 @@ def pt_cloud(p, p_, T, foe, scale, c):
     foe = c_ @ foe
     
     d = depth_tc(p[:2], (p_-p)[:2], foe[:2])
-    d = d * (d < 10.0).double()
+    #d = d * (d < 20.0).double()
+    d = torch.clamp(d, max=20.0)
 
     d *= scale
 
     x = p * d
     x = T[:3, :3] @ x + T[:3, 3:]
 
-    _, close = torch.topk(-d, k=4)
+    _, close = torch.topk(-d, k=10)
 
     x = x[:, close]
     x = x.detach().numpy()
@@ -298,6 +299,7 @@ if __name__ == '__main__':
     i = 0
     show_cloud = True
     pose0 = np.eye(4)
+    W_poses = [pose0]
     cloud_all = np.zeros((3, 1))
     
     for p, f, T, Tgt in kp:
@@ -352,6 +354,7 @@ if __name__ == '__main__':
         T_ = norm_t(T_, normT)
         poses_.append(T_)
         pose0 = pose0 @ T_
+        W_poses.append(pose0)
         
         if i % 30 == 29:
             P = [poses_gt, poses, poses_]

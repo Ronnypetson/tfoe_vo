@@ -25,8 +25,8 @@ class EuRoC:
                             [0.0, 457.296, 248.375],
                             [0.0, 0.0,     1.0]])
         self.newc = self.c0.copy()
-        self.newc[0, 0] = self.c0[0, 0] / np.sqrt(2)
-        self.newc[1, 1] = self.c0[1, 1] / np.sqrt(2)
+        #self.newc[0, 0] = self.c0[0, 0] / np.sqrt(2)
+        #self.newc[1, 1] = self.c0[1, 1] / np.sqrt(2)
         # radial-tangential distortion
         self.dist = np.array([-0.28340811, 0.07395907, 0.00019359, 1.76187114e-05])
 

@@ -7,7 +7,8 @@ from mpl_toolkits.mplot3d import Axes3D
 from matplotlib import pyplot as plt
 from opt import OptSingle
 import pykitti
-from reproj import depth_tc
+from reproj import depth_tc, depth_tc_
+from geom import intersecc, drawlines
 from euroc.loader import EuRoC
 
 
@@ -55,20 +56,25 @@ def pt_cloud(p, p_, T, foe, scale, c):
     p = torch.cat([p, z], dim=0)
     p_ = torch.cat([p_, z], dim=0)
     foe = torch.cat([foe, z_], dim=0)
-    
+    #fmask = torch.mean(torch.abs(p_-p), dim=0) # n
+    #fmask = torch.where(fmask < 2.0,
+    #                    torch.tensor(0.0).double(),
+    #                    torch.tensor(1.0).double())
+
     c_ = torch.inverse(c)
     p = c_ @ p
     p_ = c_ @ p_
     foe = c_ @ foe
     
     d = depth_tc(p[:2], (p_-p)[:2], foe[:2])
+    d = d * (d < 10.0).double()
+
     d *= scale
-    d = torch.clamp(d, max=5.0)
-    
+
     x = p * d
     x = T[:3, :3] @ x + T[:3, 3:]
 
-    _, close = torch.topk(-d, k=1)
+    _, close = torch.topk(-d, k=4)
 
     x = x[:, close]
     x = x.detach().numpy()
@@ -85,7 +91,10 @@ def plot_pt_cloud(x, outfn):
     ax.view_init(azim=177, elev=65)
     ax.scatter(x[2, :], -x[0, :], x[1, :], marker='.')
     #ax_data = ax.plot([0], [0], [0], marker='.')[0]
-    plt.show()
+    #plt.show()
+    plt.show(block=False)
+    plt.pause(10)
+    plt.close()
     
     #plt.savefig(outfn)
     #plt.close(fig)
@@ -165,6 +174,7 @@ class KpT0:
     
     def __iter__(self):
         camera_matrix = self.camera_matrix
+        k_ = np.linalg.inv(camera_matrix)
         feature_detector = self.feature_detector
         lk_params = self.lk_params
         h, w = self.size
@@ -187,7 +197,8 @@ class KpT0:
 
             matches = bf.match(des1, des2)
             matches = sorted(matches, key=lambda x: x.distance)
-            #img3 = np.zeros(image.shape,dtype=image.dtype)
+
+            #img3 = np.zeros(image.shape, dtype=image.dtype)
             #img3 = cv2.drawMatches(prev_image, prev_keypoint,
             #                       image, curr_keypoint, matches[:10],
             #                       outImg=img3, flags=2)
@@ -226,10 +237,30 @@ class KpT0:
                 if len(self.avids) < 3:
                     self.avids = [j for j in range(len(points))]
 
-                _, R, t, mask = cv2.recoverPose(E, p1, points, camera_matrix, mask=None) #
+                F = k_ @ (E @ k_)
+                lines2 = cv2.computeCorrespondEpilines(points[self.vids], 1, F)
+
+                ep = intersecc(lines2[:, 0])
+                ep = np.concatenate([ep, np.ones(1)], axis=0)
+                ep = camera_matrix @ ep
+                self.ep0 = ep[:2]
+
+                #clines = camera_matrix @ lines2.reshape(-1, 3).T
+                #clines = clines.T
+                #try:
+                #    im3, _ = drawlines(image, prev_image, clines,
+                #                       points.reshape(-1, 2), p1.reshape(-1, 2))
+                #    plt.imshow(im3)
+                #    plt.show()
+                #except Exception:
+                #    continue
+
+                _, R, t, mask = cv2.recoverPose(E, p1, points, camera_matrix, mask=mask) #
 
                 #R1, R2, t0 = cv2.decomposeEssentialMat(E)
-                #if np.trace(R1) > np.trace(R2):
+                #tr1 = np.trace(R1)
+                #tr2 = np.trace(R2)
+                #if tr1 > tr2:
                 #    R = R1
                 #else:
                 #    R = R2
@@ -255,7 +286,7 @@ class KpT0:
 
 
 if __name__ == '__main__':
-    seq_id = 'V2_01_easy' # 'MH_01_easy' #
+    seq_id = 'MH_01_easy' #'V2_01_easy' #
     bdir = '/home/ronnypetson/Downloads/'
     h, w = 480, 752
     kp = KpT0(h, w, bdir, seq_id)
@@ -265,14 +296,13 @@ if __name__ == '__main__':
     poses_gt = []
     poses_ = []
     i = 0
-    show_cloud = False
+    show_cloud = True
     pose0 = np.eye(4)
     cloud_all = np.zeros((3, 1))
     
     for p, f, T, Tgt in kp:
         normT = np.linalg.norm(Tgt[:3, 3])
         T = norm_t(T, normT)
-        T[:3, 3] = Tgt[:3, 3]
 
         poses.append(T)
         poses_gt.append(Tgt)
@@ -288,11 +318,13 @@ if __name__ == '__main__':
         opt = OptSingle(x, x_, c)
 
         #T0 = SE3.from_matrix(T).inv().log()
-        T0 = SE3.from_matrix(Tgt).inv().log()
+        T0 = SE3.from_matrix(Tgt).inv().log() #
         #T0 = np.zeros(6)
-        foe0 = np.array([w/2.0, h/2.0])
-        #foe0 = foe0 + 1e1*np.random.randn(2) ###
-        Tfoe = opt.optimize(T0, foe0)
+        #foe0 = np.array([w/2.0, h/2.0])
+        foe0 = np.array([367.215, 248.375]) / 1.0
+        #foe0 = kp.ep0 / 100.0
+        #foe0 = np.array([0.0, 0.0])
+        Tfoe = opt.optimize(T0, foe0, freeze=True)
         print(opt.min_obj)
         if opt.min_obj > failure_eps:
             print('Initialization failure.')
@@ -306,7 +338,9 @@ if __name__ == '__main__':
 
             opt = OptSingle(x, x_, c)
             T0 = np.zeros(6)
-            foe0 = np.array([w / 2.0, h / 2.0])
+            #foe0 = np.array([w / 2.0, h / 2.0])
+            foe0 = np.array([367.215, 248.375]) / 1.0
+            #foe0 = kp.ep0 / 100.0
             # foe0 = foe0 + 1e1*np.random.randn(2) ###
             Tfoe = opt.optimize(T0, foe0, freeze=False)
             print(f'New x0 status: {opt.min_obj <= failure_eps}')
@@ -331,9 +365,9 @@ if __name__ == '__main__':
             foe = torch.from_numpy(foe).double().unsqueeze(-1)
             c_tc = torch.from_numpy(c).double()
             cloud = pt_cloud(p, p_, T_acc, foe, scale, c_tc)
-            cloud_all = np.concatenate([cloud_all, cloud], axis=1) # [:,:20]
+            cloud_all = np.concatenate([cloud_all, cloud], axis=1)
         
-        if i % 40 == 39 and show_cloud:
+        if i % 100 == 99 and show_cloud:
             plot_pt_cloud(np.array(cloud_all), f'euroc_{seq_id}_pt_cloud.svg')
         
         i += 1

@@ -108,17 +108,19 @@ class OptSingle:
         Tfoe0 = np.concatenate([T0, foe0], axis=0)
         Tfoe0 = np.expand_dims(Tfoe0, axis=-1)
         
-        #res = minimize(self.objective,\
-        #               Tfoe0,method='BFGS',\
-        #               jac=True,\
-        #               options={'disp': True,\
-        #                        'maxiter':100,\
-        #                        'gtol':1e-8})
+        #res = minimize(self.objective,
+        #               Tfoe0, method='BFGS',
+        #               jac=True,
+        #               options={'disp': False,
+        #                        'maxiter': 100,
+        #                        'gtol': 1e-8})
 
         bounds = []
         if freeze:
+            #for par in Tfoe0:
+            #    bounds.append((par-1e-5, par+1e-5))
             for par in Tfoe0[:6]:
-                bounds.append((par-1e-10, par+1e-10))
+                bounds.append((par-1e-5, par+1e-5))
             for par in Tfoe0[6:]:
                 bounds.append((None, None))
         else:
@@ -130,15 +132,16 @@ class OptSingle:
                        jac=True,
                        bounds=bounds,
                        options={'disp': False,
-                                'maxiter': 100,
+                                'maxiter': 1000,
                                 'gtol': 1e-8})
 
-        #res = minimize(self.objective,\
-        #               Tfoe0,method='Newton-CG',\
-        #               jac=True,\
-        #               options={'disp': False,\
-        #                        'maxiter':100,\
-        #                        'gtol':1e-8})
+        #res = minimize(self.objective,
+        #               Tfoe0, method='BFGS',
+        #               jac=True,
+        #               bounds=bounds,
+        #               options={'disp': False,
+        #                        'maxiter': 100,
+        #                        'gtol': 1e-8})
         
         #res = minimize(self.obj_npy,\
         #               Tfoe0,method='Newton-CG',\

@@ -240,7 +240,7 @@ def main():
     poses_gt = []
     poses_ = []
     i = 0
-    show_cloud = True
+    show_cloud = False
     pose0 = np.eye(4)
     W_poses = []
     cloud_all = np.zeros((3, 1))
@@ -312,6 +312,7 @@ def main():
                 plot_pt_cloud(np.array(cloud_all), f'{seq_id}_pt_cloud.svg')
 
             i += 1
+        save_poses(W_poses, f'odom/KITTI_{seq_id}.txt')
     except KeyboardInterrupt as e:
         save_poses(W_poses, f'odom/KITTI_{seq_id}.txt')
         raise e

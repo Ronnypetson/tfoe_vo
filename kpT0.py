@@ -1,4 +1,5 @@
 import os
+import sys
 import time
 import numpy as np
 import cv2
@@ -82,7 +83,7 @@ class KpT0:
 
 
 def main():
-    seq_id = '04'
+    seq_id = sys.argv[1]
     #run_type = 'id_init' #'E_init_Tfoe'
     run_date = time.asctime().replace(' ', '_')
     state_fns = ['kpT0.py', 'opt.py', 'reproj.py', 'utils.py']

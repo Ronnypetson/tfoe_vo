@@ -233,11 +233,13 @@ class KpT0:
 
 
 def main():
-    seq_id = '02'
+    seq_id = '01'
     run_type = 'id_init' #'E_init_Tfoe'
-    run_date = time.asctime().replace(' ', '_')
-    run_hash = hash(files_to_str(['kpT0.py', 'opt.py', 'reproj.py']))
-    run_dir = f'odom/{run_hash}/{run_date}/'
+    #run_date = time.asctime().replace(' ', '_')
+    #state_fns = ['kpT0.py', 'opt.py', 'reproj.py']
+    #run_hash = hash(files_to_str(state_fns))
+    #run_dir = f'odom/{run_hash}/{run_date}/'
+    #save_state('odom/', state_fns)
 
     if not os.path.isdir(f'odom/{run_type}'):
         os.makedirs(f'odom/{run_type}')

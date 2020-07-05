@@ -1,11 +1,15 @@
 import os
+import hashlib
 
 
 def files_to_hash(fns):
     h = 0
     for fn in fns:
         with open(fn, 'r') as f:
-            h += hash(f.read())
+            #h += hash(f.read())
+            content = b"{f.read()}"
+            h_ = hashlib.sha224(content).hexdigest()
+            h = int(h_, 16)
     return h
 
 

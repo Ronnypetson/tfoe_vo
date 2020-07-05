@@ -1,12 +1,12 @@
 import os
 
 
-def files_to_str(fns):
-    s = ''
+def files_to_hash(fns):
+    h = 0
     for fn in fns:
         with open(fn, 'r') as f:
-            s += f.read()
-    return s
+            h += hash(f.read())
+    return h
 
 
 def save_state(dir, fns):
@@ -16,8 +16,8 @@ def save_state(dir, fns):
     '''
     if not os.path.isdir(dir):
         os.makedirs(dir)
-    h = hash(files_to_str(fns))
-    h = str(h)
+    #h = hash(files_to_str(fns))
+    h = files_to_hash(fns)
     vdir = f'{dir}/{h}/config/'
     if not os.path.isdir(vdir):
         os.makedirs(vdir)
@@ -28,4 +28,4 @@ def save_state(dir, fns):
             cmd = f'cp {fn} {dest}'
             os.system(cmd)
         else:
-            assert hash(files_to_str([dest])) == hash(files_to_str([fn]))
+            assert files_to_hash([dest]) == files_to_hash([fn])

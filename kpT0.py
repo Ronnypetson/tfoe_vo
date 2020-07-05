@@ -10,7 +10,7 @@ from matplotlib import pyplot as plt
 from opt import OptSingle
 import pykitti
 from reproj import depth_tc
-from versions import files_to_str, save_state
+from versions import files_to_hash, save_state
 
 
 def homSE3tose3(R, t):
@@ -237,7 +237,7 @@ def main():
     run_type = 'id_init' #'E_init_Tfoe'
     #run_date = time.asctime().replace(' ', '_')
     #state_fns = ['kpT0.py', 'opt.py', 'reproj.py']
-    #run_hash = hash(files_to_str(state_fns))
+    #run_hash = files_to_hash(state_fns)
     #run_dir = f'odom/{run_hash}/{run_date}/'
     #save_state('odom/', state_fns)
 

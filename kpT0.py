@@ -1,3 +1,5 @@
+import os
+import time
 import numpy as np
 import cv2
 import torch
@@ -8,6 +10,7 @@ from matplotlib import pyplot as plt
 from opt import OptSingle
 import pykitti
 from reproj import depth_tc
+from versions import files_to_str, save_state
 
 
 def homSE3tose3(R, t):
@@ -230,7 +233,14 @@ class KpT0:
 
 
 def main():
-    seq_id = '06'
+    seq_id = '02'
+    run_type = 'id_init' #'E_init_Tfoe'
+    run_date = time.asctime().replace(' ', '_')
+    run_hash = hash(files_to_str(['kpT0.py', 'opt.py', 'reproj.py']))
+    run_dir = f'odom/{run_hash}/{run_date}/'
+
+    if not os.path.isdir(f'odom/{run_type}'):
+        os.makedirs(f'odom/{run_type}')
     bdir = '/home/ronnypetson/Downloads/kitti_seq/dataset/'
     h, w = 376, 1241
     kp = KpT0(h, w, bdir, seq_id)
@@ -262,11 +272,11 @@ def main():
             x_ = np.concatenate([x_, z], axis=0)
 
             opt = OptSingle(x, x_, c)
-            T0 = SE3.from_matrix(T).inv().log()
-            #T0 = 1e-3*np.random.randn(6) #np.zeros(6)
-            foe0 = np.array([w/2.0, h/2.0])
-            #foe0 = foe0 + 1e1*np.random.randn(2) ###
-            Tfoe = opt.optimize(T0, foe0)
+            #T0 = SE3.from_matrix(T).inv().log()
+            T0 = np.zeros(6)
+            #foe0 = np.array([w/2.0, h/2.0])
+            foe0 = np.array([607.1928, 185.2157])
+            Tfoe = opt.optimize(T0, foe0, freeze=False)
 
             if opt.min_obj > failure_eps:
                 print('Initialization failure.')
@@ -312,9 +322,9 @@ def main():
                 plot_pt_cloud(np.array(cloud_all), f'{seq_id}_pt_cloud.svg')
 
             i += 1
-        save_poses(W_poses, f'odom/KITTI_{seq_id}.txt')
+        save_poses(W_poses, f'odom/{run_type}/KITTI_{seq_id}.txt')
     except KeyboardInterrupt as e:
-        save_poses(W_poses, f'odom/KITTI_{seq_id}.txt')
+        save_poses(W_poses, f'odom/{run_type}/KITTI_{seq_id}.txt')
         raise e
 
 

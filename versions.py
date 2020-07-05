@@ -6,9 +6,9 @@ def files_to_hash(fns):
     h = 0
     for fn in fns:
         with open(fn, 'r') as f:
-            content = b"{f.read()}"
+            content = f'{f.read()}'.encode('utf-8')
             h_ = hashlib.sha224(content).hexdigest()
-            h = int(h_, 16)
+            h += int(h_, 16)
     return h
 
 

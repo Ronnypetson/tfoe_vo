@@ -231,6 +231,7 @@ class KpT0:
                 E, mask = cv2.findEssentialMat(p1, points, camera_matrix,
                                                cv2.RANSAC, 0.999, 0.1, mask=None) # mask=None
 
+                self.E = E
                 self.vids = [j for j in range(len(mask)) if mask[j] == 1.0]
                 self.avids = [j for j in range(len(mask)) if mask[j] == 0.0]
                 if len(self.avids) < 3:

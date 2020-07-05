@@ -28,6 +28,12 @@ def intersecc(lines):
     return p
 
 
+def null(A, eps=1e-15):
+    u, s, vh = np.linalg.svd(A)
+    null_space = np.compress(s <= eps, vh, axis=0)
+    return null_space
+
+
 def drawlines(img1, img2, lines, pts1, pts2):
     ''' img1 - image on which we draw the epilines for the points in img2
         lines - corresponding epilines '''

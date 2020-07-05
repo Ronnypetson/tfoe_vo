@@ -100,6 +100,25 @@ def depth(p,f,foe):
     return d
 
 
+def E_from_T(T):
+    '''
+    T is in SE3 form.
+    '''
+    R = T[:3, :3]
+    t = T[:3, 3]
+    tn = torch.norm(t)
+    if tn == 0.0:
+        t = t + 1e-3*torch.randn(t.size())
+        tn = torch.norm(t)
+    t = t / tn
+    tx = torch.tensor([[0.0, -t[2], t[1]],
+                       [t[2], 0.0, -t[0]],
+                       [-t[1], t[0], 0.0]])
+    tx = tx.double()
+    E = tx @ R
+    return E
+
+
 def gen_pts(n):
     ''' returns x,x'
         x and x' are 3xN

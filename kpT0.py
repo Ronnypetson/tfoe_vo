@@ -9,6 +9,7 @@ from liegroups import SE3
 #from matplotlib import pyplot as plt
 from opt import OptSingle
 import pykitti
+from geom import intersecc, null
 from versions import files_to_hash, save_state
 from utils import norm_t, plot_trajs
 from utils import save_poses, pt_cloud, plot_pt_cloud
@@ -33,6 +34,7 @@ class KpT0:
     
     def __iter__(self):
         camera_matrix = self.camera_matrix
+        k_ = np.linalg.inv(camera_matrix)
         feature_detector = self.feature_detector
         lk_params = self.lk_params
         h, w = self.size
@@ -56,11 +58,24 @@ class KpT0:
 
                 E, mask = cv2.findEssentialMat(p1, points, camera_matrix,
                                                cv2.RANSAC, 0.999, 0.1, None)
+                self.E = E
                 
                 self.vids = [j for j in range(len(mask)) if mask[j] == 1.0]
                 self.avids = [j for j in range(len(st)) if st[j] == 1.0 and mask[j] == 0.0]
                 if len(self.avids) < 3:
                     self.avids = [j for j in range(len(points)) if st[j] == 1.0]
+
+                F = k_ @ (E @ k_)
+                z = np.ones((len(self.vids), 1, 1))
+                pts_ = np.concatenate([points[self.vids], z], axis=-1)
+                pts_ = k_ @ pts_[:, 0].T
+                pts_ = pts_.T[:, np.newaxis, :2]
+                lines2 = cv2.computeCorrespondEpilines(pts_, 1, F)
+                ep = intersecc(lines2[:, 0])
+                ep = np.concatenate([ep, np.ones(1)], axis=0)
+                ep = camera_matrix @ ep
+
+                self.ep0 = ep[:2]
 
                 _, R, t, mask = cv2.recoverPose(E, p1, points, camera_matrix, mask=mask) # , mask=mask
                 T0 = np.eye(4)
@@ -84,9 +99,8 @@ class KpT0:
 
 def main():
     seq_id = sys.argv[1]
-    #run_type = 'id_init' #'E_init_Tfoe'
     run_date = time.asctime().replace(' ', '_')
-    state_fns = ['kpT0.py', 'opt.py', 'reproj.py', 'utils.py']
+    state_fns = ['kpT0.py', 'opt.py', 'utils.py', 'reproj.py', 'opt.py']
     run_hash = files_to_hash(state_fns)
     run_dir = f'odom/{run_hash}/{run_date}/'
     save_state('odom/', state_fns)
@@ -123,10 +137,11 @@ def main():
             x_ = x_[kp.vids, 0, :].transpose(1, 0) # kp.vids
             x_ = np.concatenate([x_, z], axis=0)
 
-            opt = OptSingle(x, x_, c)
+            opt = OptSingle(x, x_, c, kp.E)
             #T0 = SE3.from_matrix(T).inv().log()
             T0 = np.zeros(6)
             foe0 = np.array([w/2.0, h/2.0])
+            #foe0 = kp.ep0
             #foe0 = np.array([607.1928, 185.2157])
             Tfoe = opt.optimize(T0, foe0, freeze=False)
 
@@ -140,7 +155,7 @@ def main():
                 x_ = x_[kp.avids, 0, :].transpose(1, 0)  # kp.vids
                 x_ = np.concatenate([x_, z], axis=0)
 
-                opt = OptSingle(x, x_, c)
+                opt = OptSingle(x, x_, c, kp.E)
                 T0 = np.zeros(6)
                 foe0 = np.array([w/2.0, h/2.0])
                 # foe0 = foe0 + 1e1*np.random.randn(2) ###
@@ -150,6 +165,8 @@ def main():
             T_ = Tfoe[:6]
             foe = Tfoe[6:]
             print(foe)
+            #print(T_)
+            #print(opt.min_obj)
             T_ = SE3.exp(T_).inv().as_matrix()
             T_ = norm_t(T_, normT)
             poses_.append(T_)

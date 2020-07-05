@@ -1,6 +1,7 @@
 import numpy as np
 from scipy.optimize import minimize
-from reproj import reproj, depth, gen_pts, reproj_tc, depth_tc, reproj_tc_foe
+from reproj import reproj, depth, gen_pts, E_from_T
+from reproj import reproj_tc, depth_tc, reproj_tc_foe
 from liegroups import SE3
 import torch
 import torch.nn.functional as F
@@ -9,7 +10,7 @@ from hessian import jacobian, hessian
 
 
 class OptSingle:
-    def __init__(self, x, x_, c):
+    def __init__(self, x, x_, c, E):
         ''' x and x_ are 3xN
         '''
         self.x = x
@@ -20,6 +21,7 @@ class OptSingle:
         self.foe = np.zeros(2)
         self.c = torch.from_numpy(c) #.float()
         self.c_ = torch.inverse(self.c)
+        self.E = torch.from_numpy(E)
         self.min_obj = np.inf
     
     def obj_tc(self, Tfoe):
@@ -91,7 +93,18 @@ class OptSingle:
         y = c_ @ torch.from_numpy(self.x_)-x_rep
 
         #y = torch.mean(torch.abs(y))
-        y = torch.mean(y**2.0)
+        #z = torch.ones(1, 1).double()
+        #foe_ = torch.cat([foe, z], dim=0)
+        #foe_ = c_ @ foe_
+        #epi_loss = torch.norm(self.E.T @ foe_)
+        #E = E_from_T(T)
+        #tcx_ = torch.from_numpy(self.x_)
+        #epi_loss = (tcx_.T).unsqueeze(1)\
+        #           @ (E @ (c @ x_rep)).T.unsqueeze(-1)
+        #epi_loss = torch.abs(epi_loss[:, 0, 0])
+        #epi_loss = torch.mean(epi_loss)
+
+        y = torch.mean(y**2.0) # + epi_loss
         #y = F.smooth_l1_loss(c_ @ torch.from_numpy(self.x_).float(),x_rep)
         #y = y + torch.abs(1.0 - torch.norm(Tfoe_[:3]))
         y.backward()

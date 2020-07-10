@@ -45,48 +45,17 @@ def reproj_tc_foe(p, p_, T, foe, c):
     p_ = c_ @ p_
     z = torch.ones(1, 1).double()
 
-    foe = foe * 1000.0  ###
+    foe = foe * 1.0  ###
     foe = torch.cat([foe, z], dim=0)
     foe = c_ @ foe
-
     d = depth_tc(p[:2], (p_-p)[:2], foe[:2])
-    #d = depth_tc2(p, (p_ - p), torch.inverse(T), foe)
-    #d = depth_tc_(c@p, (c@p_ - c@p), T, c@foe)
+    #d = depth_tc_(p, (p_-p), T)
 
-    #p = c_ @ p ###
     x = p * d
     x_ = T[:3, :3] @ x + T[:3, 3:]
     p_rep = x_ / x_[-1:]
 
     ##p_rep = c @ p_rep
-    return p_rep
-
-
-def reproj_tc_(p, p_, T, foe, c):
-    ''' Computes rerpojection of points p given pose T and camera intrinsics c.
-        T is in SE3 form.
-        d is 1xN -- point depths.
-        c is in 3x3 form.
-        p is 3xN in image coordinates.
-    '''
-    c_ = torch.inverse(c)
-    p = c_ @ p
-    p_ = c_ @ p_
-    z = torch.ones(1, 1).double()
-
-    foe = torch.cat([foe, z], dim=0)
-    # foe = c_ @ foe
-
-    foe = c @ T[:3, 3:] + 0.0*foe
-    foe = foe / (foe[-1] + 1e-8)
-    foe = c_ @ foe
-
-    d = depth_tc(p[:2], (p_-p)[:2], foe[:2])
-
-    x = p * d
-    x_ = T[:3, :3] @ x + T[:3, 3:]
-    p_rep = x_ / x_[-1:]
-
     return p_rep
 
 
@@ -96,48 +65,26 @@ def depth_tc(p, f, foe):
         foe is 2x1
     '''
     mag = torch.norm(f, dim=0)
-    mag = torch.clamp(mag, min=1e-3) # 1e-3
+    mag = torch.clamp(mag, 1e-3) # 1e-3
     dist = (p+f)-foe
     dist = torch.norm(dist, dim=0)
     d = dist / mag
     return d
 
 
-def depth_tc2(p, f, T, foe):
+def depth_tc_(p, f, T):
     ''' p is 3xN
         f is 3xN (flow)
-        foe is 3x1
+        T is 3x3
     '''
-    mag = torch.norm(f - (foe - T[:3, :3].T @ foe), dim=0)
-    mag = torch.clamp(mag, min=1e-3) # 1e-3
-    dist = (p+f)-foe
-    dist = torch.norm(dist, dim=0)
-    d = dist / mag
-    return d
-
-
-def depth_tc_(p, f, T, foe):
-    ''' p is 3xN
-        f is 3xN (flow)
-        T is 4x4
-        foe is 3x1
-    '''
-    #T = torch.inverse(T)
     p_ = p + f
     v = T[0, :3].unsqueeze(-1) - p_[[0], :]*T[2, :3].unsqueeze(-1)
     v = v.T.unsqueeze(1) # n,1,3
     num = v[:, 0] @ T[:3, 3:] # n,1
-    #num = v[:, 0] @ foe  # n,1
     den = v @ p.T.unsqueeze(-1) # n,1,1
-    den = den + 1e-8 #torch.clamp(den, min=1e-3)
-
-    #print(torch.min(num), torch.max(num))
-    #print(torch.min(den), torch.max(den))
-    #input()
-
+    den = torch.clamp(den, min=1e-3)
     d = num / den.squeeze(-1) # n,1
     d = d.squeeze(-1) # n
-    #d = torch.clamp(d, min=1e-3, max=1e4)
     return d
 
 

@@ -2,8 +2,7 @@ import numpy as np
 import torch
 from matplotlib import pyplot as plt
 from liegroups import SE3
-from reproj import depth_tc, depth_tc_, depth_tc2
-from mpl_toolkits.mplot3d import Axes3D
+from reproj import depth_tc
 
 
 def homSE3tose3(R, t):
@@ -47,7 +46,7 @@ def save_poses(p, outfn):
             f.write(T_)
 
 
-def pt_cloud(p, p_, T, foe, scale, c, T_):
+def pt_cloud(p, p_, T, foe, scale, c):
     ''' p is 2,N
         p_ is 2,N
         T is 4,4
@@ -67,23 +66,16 @@ def pt_cloud(p, p_, T, foe, scale, c, T_):
     p = c_ @ p
     p_ = c_ @ p_
     foe = c_ @ foe
-    T_ = torch.from_numpy(T_)
 
-    #d = depth_tc(p[:2], (p_ - p)[:2], foe[:2])
-    d = depth_tc2(p, (p_ - p), T, foe)
-    #d = depth_tc_(c@p, c@(p_ - p), torch.inverse(T_), c@foe)
-    d = d * scale
-    #print(d[:20])
-    #print(torch.min(d), torch.max(d))
-    #d = d * (torch.abs(d) < 50.0).double()
+    d = depth_tc(p[:2], (p_ - p)[:2], foe[:2])
+    d *= scale
 
-    #p = c_ @ p
     x = p * d
     x = T[:3, :3] @ x + T[:3, 3:]
     # thresh_d = 5*torch.min(d)
     # close = (d < thresh_d).nonzero()
     # close = close.reshape(-1)
-    _, close = torch.topk(-d, k=100)
+    _, close = torch.topk(-d, k=10)
 
     x = x[:, close]
     x = x.detach().numpy()

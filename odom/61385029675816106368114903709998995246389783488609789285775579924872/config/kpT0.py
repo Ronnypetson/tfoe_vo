@@ -150,8 +150,8 @@ def main():
             #foe0 = foe0 / (foe0[-1]+1e-8)
             #foe0 = foe0[:2, 0]
             #foe0 = kp.ep0
-            foe0 = np.array([607.1928, 185.2157]) / 1000.0
-            Tfoe = opt.optimize(T0, foe0, freeze=False)
+            foe0 = np.array([607.1928, 185.2157]) # / 1000.0
+            Tfoe = opt.optimize(T0, foe0, freeze=True)
             print(opt.min_obj)
 
             if opt.min_obj > failure_eps and False:

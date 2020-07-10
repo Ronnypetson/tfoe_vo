@@ -5,7 +5,8 @@ import numpy as np
 import cv2
 import torch
 from liegroups import SE3
-from matplotlib import pyplot as plt
+#from mpl_toolkits.mplot3d import Axes3D
+#from matplotlib import pyplot as plt
 from opt import OptSingle
 import pykitti
 from geom import intersecc, null
@@ -49,10 +50,6 @@ class KpT0:
             image = cv2.resize(image, (w, h))
 
             prev_keypoint = feature_detector.detect(prev_image, None)
-            #imgkp = prev_image.copy()
-            #imgkp = cv2.drawKeypoints(prev_image.copy(), prev_keypoint, imgkp)
-            #plt.imshow(imgkp)
-            #plt.show()
             points = np.array([[x.pt] for x in prev_keypoint], dtype=np.float32)
             
             try:
@@ -114,7 +111,6 @@ def main():
     h, w = 376, 1241
     kp = KpT0(h, w, bdir, seq_id)
     c = kp.camera_matrix
-    c_ = np.linalg.inv(c)
     failure_eps = 5e-1
     poses = []
     poses_gt = []
@@ -142,19 +138,14 @@ def main():
             x_ = np.concatenate([x_, z], axis=0)
 
             opt = OptSingle(x, x_, c, kp.E)
-            #T0 = SE3.from_matrix(Tgt, normalize=True)
-            #T0 = T0.inv().log()
-            T0 = np.zeros(6)
+            T0 = SE3.from_matrix(T).inv().log()
+            #T0 = np.zeros(6)
             #foe0 = np.array([w/2.0, h/2.0])
-            #foe0 = c @ T[:3, 3:]
-            #foe0 = foe0 / (foe0[-1]+1e-8)
-            #foe0 = foe0[:2, 0]
             #foe0 = kp.ep0
-            foe0 = np.array([607.1928, 185.2157]) / 1000.0
+            foe0 = np.array([607.1928, 185.2157])
             Tfoe = opt.optimize(T0, foe0, freeze=False)
-            print(opt.min_obj)
 
-            if opt.min_obj > failure_eps and False:
+            if opt.min_obj > failure_eps:
                 print('Initialization failure.')
                 x = p[kp.avids, 0, :].transpose(1, 0)  #
                 z = np.ones((1, x.shape[-1]))
@@ -193,10 +184,10 @@ def main():
                 T_acc = torch.from_numpy(pose0).double()
                 foe = torch.from_numpy(foe).double().unsqueeze(-1)
                 c_tc = torch.from_numpy(c).double()
-                cloud = pt_cloud(p, p_, T_acc, foe, scale, c_tc, T_)
+                cloud = pt_cloud(p, p_, T_acc, foe, scale, c_tc)
                 cloud_all = np.concatenate([cloud_all, cloud], axis=1) # [:,:20]
 
-            if i % 2 == 1 and show_cloud:
+            if i % 80 == 79 and show_cloud:
                 plot_pt_cloud(np.array(cloud_all), f'{run_dir}/{seq_id}_pt_cloud.svg')
 
             i += 1

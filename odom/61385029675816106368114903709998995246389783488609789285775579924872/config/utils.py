@@ -69,8 +69,8 @@ def pt_cloud(p, p_, T, foe, scale, c, T_):
     foe = c_ @ foe
     T_ = torch.from_numpy(T_)
 
-    #d = depth_tc(p[:2], (p_ - p)[:2], foe[:2])
-    d = depth_tc2(p, (p_ - p), T, foe)
+    d = depth_tc(p[:2], (p_ - p)[:2], foe[:2])
+    #d = depth_tc2(p, (p_ - p), T, foe)
     #d = depth_tc_(c@p, c@(p_ - p), torch.inverse(T_), c@foe)
     d = d * scale
     #print(d[:20])

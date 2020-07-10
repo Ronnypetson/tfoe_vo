@@ -45,7 +45,7 @@ def reproj_tc_foe(p, p_, T, foe, c):
     p_ = c_ @ p_
     z = torch.ones(1, 1).double()
 
-    foe = foe * 1000.0  ###
+    foe = foe * 1.0 # 1000.0  ###
     foe = torch.cat([foe, z], dim=0)
     foe = c_ @ foe
 

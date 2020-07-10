@@ -2,7 +2,6 @@ import numpy as np
 from scipy.optimize import minimize
 from reproj import reproj, depth, gen_pts, E_from_T
 from reproj import reproj_tc, depth_tc, reproj_tc_foe
-from reproj import reproj_tc_
 from liegroups import SE3
 import torch
 import torch.nn.functional as F
@@ -80,16 +79,18 @@ class OptSingle:
         
         c = self.c
         c_ = self.c_
-
-        #x_rep = reproj_tc_(torch.from_numpy(self.x),
-        #                   torch.from_numpy(self.x_),
-        #                   T, foe, c)
-
+        
+        #d = depth_tc(torch.from_numpy(self.x[:2]).float(),\
+        #             torch.from_numpy(self.f[:2]).float(),foe)
+        #x_rep = reproj_tc(torch.from_numpy(self.x).float(),T,d,c)
+        #y = torch.from_numpy(self.x_).float()-x_rep
+        
+        # .float()
         x_rep = reproj_tc_foe(torch.from_numpy(self.x),
                               torch.from_numpy(self.x_),
                               T, foe, c)
-
-        y = c_ @ torch.from_numpy(self.x_) - x_rep
+        # .float()
+        y = c_ @ torch.from_numpy(self.x_)-x_rep
 
         #y = torch.mean(torch.abs(y))
         #z = torch.ones(1, 1).double()

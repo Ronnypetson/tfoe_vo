@@ -198,14 +198,6 @@ class KpT0:
 
             matches = bf.match(des1, des2)
             matches = sorted(matches, key=lambda x: x.distance)
-
-            #img3 = np.zeros(image.shape, dtype=image.dtype)
-            #img3 = cv2.drawMatches(prev_image, prev_keypoint,
-            #                       image, curr_keypoint, matches[:10],
-            #                       outImg=img3, flags=2)
-            #plt.imshow(img3)
-            #plt.show()
-
             points = np.array([[x.pt] for x in prev_keypoint], dtype=np.float32)
 
             try:

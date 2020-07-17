@@ -180,7 +180,7 @@ def main():
             T0 = SE3.from_matrix(T, normalize=True)
             #T0 = T0.inv().log()
             T0 = T0.log()
-            T00 = SE3.from_matrix(kp._T0[i+1], normalize=True).log()
+            T00 = SE3.from_matrix(kp._T0[i+2], normalize=True).log()
             if i > 0:
                 gT[i+1] = (SE3.exp(T0).dot(SE3.exp(gT[i]))).log() # i -> i-1
                 gT[i+2] = (SE3.exp(T00).dot(SE3.exp(gT[i+1]))).log() ###

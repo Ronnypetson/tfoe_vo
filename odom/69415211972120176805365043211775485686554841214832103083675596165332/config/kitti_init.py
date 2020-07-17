@@ -5,16 +5,15 @@ import numpy as np
 import cv2
 import torch
 from liegroups import SE3
-from matplotlib import pyplot as plt
+#from matplotlib import pyplot as plt
 from opt import OptSingle
 import pykitti
-from geom import intersecc, null
 from versions import files_to_hash, save_state
 from utils import norm_t, plot_trajs
 from utils import save_poses, pt_cloud, plot_pt_cloud
 
 
-class KpT0:
+class KpT0_BA:
     ''' Iterator class for returning key-points and pose initialization
     '''
     def __init__(self, h, w, basedir, seq):
@@ -22,6 +21,7 @@ class KpT0:
         self.size = (h, w)
         self.kitti = pykitti.odometry(basedir, seq)
         self.gt_odom = self.kitti.poses
+        self.seq_len = len(self.gt_odom)
         self.camera_matrix = np.array([[718.8560, 0.0, 607.1928],
                                        [0.0, 718.8560, 185.2157],
                                        [0.0, 0.0,      1.0]])
@@ -30,65 +30,36 @@ class KpT0:
         self.lk_params = dict(winSize=(21, 21),
                               criteria=(cv2.TERM_CRITERIA_EPS |
                                    cv2.TERM_CRITERIA_COUNT, 30, 0.03))
-        #self.feature_detector = cv2.ORB_create()
         self.bf = cv2.BFMatcher(cv2.NORM_HAMMING, crossCheck=True)
-    
-    def __iter__(self):
-        camera_matrix = self.camera_matrix
-        k_ = np.linalg.inv(camera_matrix)
-        feature_detector = self.feature_detector
-        lk_params = self.lk_params
-        h, w = self.size
-        gt_odom = self.gt_odom
-        bf = self.bf
 
-        pts = []
+        self._kpts = {} # keypoint cache, i -> kp
+        self._flow = {} # [i,j] -> f
+        self._T0 = {} # i -> T
+        self._ep0 = {} # i -> ep
+        self._Tgt = {} # i -> Tgt
+        self._vids = {} # i -> vid
+        self._avids = {} # i -> avid
+        self._moving = {} # i -> moving
 
-        prev_image = np.array(next(self.kitti.cam0))
-        prev_image = cv2.resize(prev_image, (w, h))
-        prev_id = 0
-        for i, image in enumerate(self.kitti.cam0):
-            image = np.array(image)
-            image = cv2.resize(image, (w, h))
-
-            prev_keypoint = feature_detector.detect(prev_image, None)
-            points = np.array([[x.pt] for x in prev_keypoint], dtype=np.float32)
-
-            #prev_keypoint, des1 = feature_detector.detectAndCompute(prev_image, None)
-            #curr_keypoint, des2 = feature_detector.detectAndCompute(image, None)
-            #matches = bf.match(des1, des2)
-            #matches = sorted(matches, key=lambda x: x.distance)
-            #points = np.array([[x.pt] for x in prev_keypoint], dtype=np.float32)
+    def init_frame(self, i):
+        if i not in self._T0:
+            i_ = min(i+1, self.seq_len-1)
+            im0 = self.kitti.get_cam0(i)
+            im0 = np.array(im0)
+            im1 = self.kitti.get_cam0(i_)
+            im1 = np.array(im1)
+            kp0 = self.feature_detector.detect(im0, None)
+            kp0 = np.array([[x.pt] for x in kp0], dtype=np.float32)
 
             try:
-                p1, st, err = cv2.calcOpticalFlowPyrLK(prev_image, image, points,
-                                                       None, **lk_params)
-
-                #kp1 = []
-                #kp2 = []
-                #for j, m in enumerate(matches):
-                #    t = m.trainIdx
-                #    q = m.queryIdx
-                #    pt1 = [prev_keypoint[q].pt[0], prev_keypoint[q].pt[1]]
-                #    pt1 = np.array(pt1)
-                #    pt2 = [curr_keypoint[t].pt[0], curr_keypoint[t].pt[1]]
-                #    pt2 = np.array(pt2)
-                #    kp1.append(pt1)
-                #    kp2.append(pt2)
-                #p1 = np.array(kp2)
-                #p1 = np.expand_dims(p1, axis=1)
-                #points = np.array(kp1)
-                #points = np.expand_dims(points, axis=1)
-
-                E, mask = cv2.findEssentialMat(p1, points, camera_matrix,
+                p1, st, err = cv2.calcOpticalFlowPyrLK(im0, im1, kp0,
+                                                       None, **self.lk_params)
+                E, mask = cv2.findEssentialMat(p1, kp0, self.camera_matrix,
                                                cv2.RANSAC, 0.999, 0.1, None)
-                self.E = E
+                vids = [j for j in range(len(mask)) if mask[j] == 1.0]
+                avids = vids
 
-                self.vids = [j for j in range(len(mask)) if mask[j] == 1.0]
-                self.avids = self.vids
-                mask_E = mask.copy()
-
-                _, R, t, mask = cv2.recoverPose(E, p1, points, camera_matrix, mask=mask) # , mask=mask
+                _, R, t, mask = cv2.recoverPose(E, p1, kp0, self.camera_matrix, mask=mask)
                 T0 = np.eye(4)
                 T0[:3, :3] = R
                 T0[:3, 3:] = t
@@ -96,41 +67,57 @@ class KpT0:
                 if len(mask) > 3:
                     vids_ = [j for j in range(len(mask)) if mask[j] == 1.0]
                     if len(vids_) > 3:
-                        #if np.sum(mask_E) > 3:
-                        #    self.avids = [j for j in range(len(mask)) if mask[j] == 0.0
-                        #                                            and mask_E[j] == 1.0]
-                        self.vids = vids_
-
+                        vids = vids_
                 if i == 0:
                     T0 = np.eye(4)
-                if np.mean(np.abs(p1[self.vids]-points[self.vids])) < 1e-2:
+                if np.mean(np.abs(p1[vids] - kp0[vids])) < 1e-2:
                     T0 = np.eye(4)
-                    self.moving = False
+                    moving = False
                 else:
-                    self.moving = True
-                #ep2 = np.linalg.inv(T0)[:3, 3:]
+                    moving = True
                 ep2 = T0[:3, 3:]
                 ep2 = ep2 / (ep2[-1] + 1e-8)
-                ep2 = camera_matrix @ ep2
-                self.ep0 = ep2[:2, 0]
+                ep2 = self.camera_matrix @ ep2
+                ep0 = ep2[:2, 0]
+                inert = np.linalg.inv(self.gt_odom[i])
+                Tgt = inert @ self.gt_odom[i_]
 
-                inert = np.linalg.inv(gt_odom[prev_id])
-                Tgt = inert @ gt_odom[i]
-
-                prev_image = image
-                prev_id = i
-                
-            except cv2.error as e:
+                self._kpts[i] = kp0
+                self._flow[[i, i_]] = p1 - kp0
+                self._T0[i] = T0
+                self._ep0[i] = ep0
+                self._Tgt[i] = Tgt
+                self._vids[i] = vids
+                self._avids[i] = avids
+                self._moving[i] = moving
+            except Exception as e:
                 print(e)
-                yield None, None, None
-            
-            yield points, p1-points, T0, Tgt
+                raise e
+
+    def init_BA(self, i, j):
+        msg = f'Check frame indexes: {i} {j}'
+        assert 0 <= i < self.seq_len, msg
+        assert 0 <= j < self.seq_len, msg
+        assert i != j, msg
+
+        self.init_frame(i)
+        self.init_frame(j)
+        kp0 = self._kpts[i]
+        if [i, j] not in self._flow:
+            im_i = self.kitti.get_cam0(i)
+            im_i = np.array(im_i)
+            im_j = self.kitti.get_cam0(j)
+            im_j = np.array(im_j)
+            kp1, st, err = cv2.calcOpticalFlowPyrLK(im_i, im_j, kp0,
+                                                   None, **self.lk_params)
+            self._flow[[i, j]] = kp1 - kp0
+        return kp0, self._flow[[i, j]]
 
 
 def main():
     seq_id = sys.argv[1]
     run_date = time.asctime().replace(' ', '_')
-    state_fns = ['kpT0.py', 'opt.py', 'utils.py', 'reproj.py', 'opt.py']
+    state_fns = ['kitti_init.py', 'opt.py', 'utils.py', 'reproj.py', 'opt.py']
     run_hash = files_to_hash(state_fns)
     run_dir = f'odom/{run_hash}/{run_date}/'
     save_state('odom/', state_fns)
@@ -139,7 +126,7 @@ def main():
         os.makedirs(run_dir)
     bdir = '/home/ronnypetson/Downloads/kitti_seq/dataset/'
     h, w = 376, 1241
-    kp = KpT0(h, w, bdir, seq_id)
+    kp = KpT0_BA(h, w, bdir, seq_id)
     c = kp.camera_matrix
     c_ = np.linalg.inv(c)
     failure_eps = 1e-7
@@ -153,7 +140,17 @@ def main():
     cloud_all = np.zeros((3, 1))
 
     try:
-        for p, f, T, Tgt in kp:
+        for i in range(kp.seq_len):
+            i_ = min(i+1, kp.seq_len-1)
+            kp.init_frame(i)
+            p = kp._kpts[i]
+            f = kp._flow[[i, i_]]
+            T = kp._T0[i]
+            Tgt = kp._Tgt[i]
+
+            print(p.shape, f.shape, T.shape, Tgt.shape)
+            input()
+
             normT = np.linalg.norm(Tgt[:3, 3])
 
             poses.append(norm_t(T.copy(), normT))

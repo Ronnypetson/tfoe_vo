@@ -22,6 +22,7 @@ class OptSingle:
         self.foe = np.zeros(2)
         self.c = torch.from_numpy(c) #.float()
         self.c_ = torch.inverse(self.c)
+        self.E = torch.from_numpy(E)
         self.min_obj = np.inf
     
     def obj_tc(self, Tfoe):

@@ -96,9 +96,9 @@ class KpT0:
                 if len(mask) > 3:
                     vids_ = [j for j in range(len(mask)) if mask[j] == 1.0]
                     if len(vids_) > 3:
-                        #if np.sum(mask_E) > 3:
-                        #    self.avids = [j for j in range(len(mask)) if mask[j] == 0.0
-                        #                                            and mask_E[j] == 1.0]
+                        if np.sum(mask_E) > 3:
+                            self.avids = [j for j in range(len(mask)) if mask[j] == 0.0
+                                                                    and mask_E[j] == 1.0]
                         self.vids = vids_
 
                 if i == 0:

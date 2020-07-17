@@ -6,10 +6,10 @@ import cv2
 import torch
 from liegroups import SE3
 #from matplotlib import pyplot as plt
-from opt import OptSingle
+from opt_ba import OptSingle
 import pykitti
 from versions import files_to_hash, save_state
-from utils import norm_t, plot_trajs
+from utils import norm_t, plot_trajs, ba_graph
 from utils import save_poses, pt_cloud, plot_pt_cloud
 
 
@@ -25,6 +25,7 @@ class KpT0_BA:
         self.camera_matrix = np.array([[718.8560, 0.0, 607.1928],
                                        [0.0, 718.8560, 185.2157],
                                        [0.0, 0.0,      1.0]])
+        self.c_ = np.linalg.inv(self.camera_matrix)
         self.feature_detector = cv2.FastFeatureDetector_create(threshold=25,
                                                                nonmaxSuppression=True)
         self.lk_params = dict(winSize=(21, 21),
@@ -103,15 +104,15 @@ class KpT0_BA:
         self.init_frame(i)
         self.init_frame(j)
         kp0 = self._kpts[i]
-        if [i, j] not in self._flow:
+        if (i, j) not in self._flow:
             im_i = self.kitti.get_cam0(i)
             im_i = np.array(im_i)
             im_j = self.kitti.get_cam0(j)
             im_j = np.array(im_j)
             kp1, st, err = cv2.calcOpticalFlowPyrLK(im_i, im_j, kp0,
                                                    None, **self.lk_params)
-            self._flow[[i, j]] = kp1 - kp0
-        return kp0, self._flow[[i, j]]
+            self._flow[(i, j)] = kp1 - kp0
+        return kp0, self._flow[(i, j)]
 
 
 def main():
@@ -138,44 +139,54 @@ def main():
     pose0 = np.eye(4)
     W_poses = []
     cloud_all = np.zeros((3, 1))
+    gT = np.zeros((kp.seq_len, 6))
+    ge = np.zeros((kp.seq_len, 2))
 
     try:
         for i in range(kp.seq_len):
             i_ = min(i+1, kp.seq_len-1)
             kp.init_frame(i)
-            p = kp._kpts[i]
-            f = kp._flow[(i, i_)]
             T = kp._T0[i]
             Tgt = kp._Tgt[i]
+            g = ba_graph(i, i+1)
+            p = {}
+            f = {}
+            for ij in g:
+                kp.init_BA(ij[0], ij[1])
+                p[ij] = kp._kpts[ij[0]]
+                f[ij] = kp._flow[ij]
 
             normT = np.linalg.norm(Tgt[:3, 3])
 
             poses.append(norm_t(T.copy(), normT))
             poses_gt.append(Tgt)
 
-            x = p[kp._vids[i], 0, :].transpose(1, 0) #
-            z = np.ones((1, x.shape[-1]))
-            x = np.concatenate([x, z], axis=0)
+            x = {}
+            x_ = {}
+            for ij in g:
+                x[ij] = p[ij][kp._vids[ij[0]], 0, :].transpose(1, 0) #
+                z = np.ones((1, x[ij].shape[-1]))
+                x[ij] = np.concatenate([x[ij], z], axis=0)
 
-            x_ = p + f
-            x_ = x_[kp._vids[i], 0, :].transpose(1, 0) # kp.vids
-            x_ = np.concatenate([x_, z], axis=0)
+                x_[ij] = (p[ij] + f[ij])[kp._vids[ij[0]], 0, :].transpose(1, 0)  #
+                x_[ij] = np.concatenate([x_[ij], z], axis=0)
 
-            opt = OptSingle(x, x_, c, None) # kp.E
+            opt = OptSingle(x, x_, c, g) # kp.E
             T0 = SE3.from_matrix(T, normalize=True)
             T0 = T0.inv().log()
             #T0 = np.zeros(6)
             foe0 = kp._ep0[i] / 1e3
+            ge[i] = foe0
             #foe0 = np.array([607.1928, 185.2157]) / 1e3
             if kp._moving[i]:
-                Tfoe = opt.optimize(T0, foe0, freeze=False)
+                Tfoe = opt.optimize(gT, ge, freeze=False)
             else:
                 Tfoe = np.zeros(8)
                 Tfoe[6:] = foe0
                 opt.min_obj = 0.0
 
             print(opt.min_obj)
-            if opt.min_obj > failure_eps:
+            if opt.min_obj > failure_eps and False:
                 print('Initialization failure.')
                 x = p[kp._avids[i], 0, :].transpose(1, 0)  # kp.avids
                 z = np.ones((1, x.shape[-1]))
@@ -191,10 +202,10 @@ def main():
                 foe0 = np.array([607.1928, 185.2157]) / 1e3
                 Tfoe = opt.optimize(T0, foe0, freeze=False)
                 print(f'New x0 status: {opt.min_obj <= failure_eps}')
-                #Tfoe = np.zeros(8) ###
 
-            T_ = Tfoe[:6]
-            foe = Tfoe[6:]
+            Tfoe = Tfoe.reshape(-1, 8)
+            T_ = Tfoe[i, :6]
+            foe = Tfoe[i, 6:]
             print(foe)
             T_ = SE3.exp(T_).inv().as_matrix()
             #T_ = norm_t(T_, normT)

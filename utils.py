@@ -146,3 +146,39 @@ def plot_trajs(P, outfn, colors='gbr', glb=False):
 
     plt.savefig(outfn)
     plt.close(fig)
+
+
+def ba_graph(i, j):
+    assert i != j, f'Check indexes {i} {j}'
+    if i > j:
+        i, j = min(i, j), max(i, j)
+    g = []
+    for start in range(i, j+1):
+        for end in range(start+1, j+1):
+            if start != end:
+                g.append((start, end))
+    return g
+
+
+def compose(i, j, T, ep, c):
+    '''
+    T is n,4,4
+    ep is n,2,1
+    '''
+    assert i != j, f'Check indexes {i} {j}'
+    z = torch.ones(ep.size(0), 1, 1).double()
+    ep = torch.cat([ep, z], dim=1) # n,3,1
+    c_ = torch.inverse(c)
+    Tji = torch.inverse(T[i]) @ T[j]
+    ac = torch.zeros(3, 1).double()
+    i_ = min(i, j)
+    j_ = max(i, j)
+    for k in range(i_+1, j_+1):
+        ac += torch.inverse(T[k, :3, :3]) @ c_ @ ep[k-1]
+    epji = c @ T[j_, :3, :3] @ ac
+
+    if i > j:
+        epji = c @ Tji[:3, :3] @ c_ @ epji
+
+    epji = epji[:2]
+    return Tji, epji

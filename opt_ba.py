@@ -2,7 +2,7 @@ import numpy as np
 from scipy.optimize import minimize
 from reproj import reproj, depth, gen_pts, E_from_T
 from reproj import reproj_tc, depth_tc, reproj_tc_foe
-from reproj import reproj_tc_
+from reproj import reproj_tc_, reproj_tc_foe_ba
 from liegroups import SE3
 import torch
 import torch.nn.functional as F
@@ -86,13 +86,14 @@ class OptSingle:
 
         y = 0.0
         for ij in g:
-            Tij, foeij = compose(ij[0], ij[1], T.clone(), foe.clone(), c)
-            x_rep = reproj_tc_foe(torch.from_numpy(self.x[ij]),
-                                  torch.from_numpy(self.x_[ij]),
-                                  Tij, foeij, c)
+            Tij, foeij = compose(ij[0]+1, ij[1]+1, T.clone(), foe.clone(), c)
+            x_rep = reproj_tc_foe_ba(torch.from_numpy(self.x[ij]),
+                                     torch.from_numpy(self.x_[ij]),
+                                     Tij, foeij, c)
             yij = F.smooth_l1_loss(c_ @ torch.from_numpy(self.x_[ij]), x_rep)
             y = y + yij
 
+        y = y / len(g)
         y.backward()
         gradTfoe = Tfoe.grad.detach().numpy()
         y = y.detach().numpy()
@@ -117,12 +118,12 @@ class OptSingle:
 
         bounds = []
         if freeze:
-            #for par in Tfoe0:
-            #    bounds.append((par-1e-5, par+1e-5))
-            for par in Tfoe0[:6]:
+            for par in Tfoe0:
                 bounds.append((par-1e-10, par+1e-10))
-            for par in Tfoe0[6:]:
-                bounds.append((None, None))
+            #for par in Tfoe0[:6]:
+            #    bounds.append((par-1e-10, par+1e-10))
+            #for par in Tfoe0[6:]:
+            #    bounds.append((None, None))
         else:
             for par in Tfoe0:
                 bounds.append((None, None))

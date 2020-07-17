@@ -152,6 +152,7 @@ def main():
             i_ = min(i+1, kp.seq_len-1)
             kp.init_frame(i)
             T = kp._T0[i]
+            print(T)
             Tgt = kp._Tgt[i]
             g = ba_graph(i, i+1)
             p = {}
@@ -189,7 +190,7 @@ def main():
             foe0 = kp._ep0[i] / 1e3
             ge[i+1] = foe0
             #foe0 = np.array([607.1928, 185.2157]) / 1e3
-            Tfoe = opt.optimize(gT, ge, freeze=False)
+            Tfoe = opt.optimize(gT, ge, freeze=True)
             #Tfoe = np.zeros((ge.shape[0], 8))
 
             print(opt.min_obj)

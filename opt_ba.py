@@ -86,12 +86,16 @@ class OptSingle:
 
         y = 0.0
         for ij in g:
+            #print(ij)
             Tij, foeij = compose(ij[0], ij[1], T.clone(), foe.clone(), c)
+            #print(Tij.detach().numpy())
+            #print(foeij.detach().numpy())
             x_rep = reproj_tc_foe_ba(torch.from_numpy(self.x[ij]),
                                      torch.from_numpy(self.x_[ij]),
                                      Tij, foeij, c)
             yij = F.smooth_l1_loss(c_ @ torch.from_numpy(self.x_[ij]), x_rep)
             y = y + yij
+        #input()
 
         y = y / len(g)
         y.backward()

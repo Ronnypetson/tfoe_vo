@@ -171,15 +171,20 @@ def compose(i, j, T, ep, c):
     ep = 1e3 * ep
     c_ = torch.inverse(c)
     Tji = T[j] @ torch.inverse(T[i])
+    #t = Tji[:3, 3:]
+    #print( (c @ (t/(t[-1]+1e-8))).detach().numpy() / 1e3 )
     ac = torch.zeros(3, 1).double()
     i_ = min(i, j)
     j_ = max(i, j)
     for k in range(i_+1, j_+1):
         ac += T[k, :3, :3].T @ c_ @ ep[k-1]
+        ac = ac / (ac[-1] + 1e-8)
     epji = c @ T[j_, :3, :3] @ ac
 
     if i > j:
         epji = c @ Tji[:3, :3] @ c_ @ epji
 
-    epji = epji[:2] / 1e3
+    epji = epji / 1e3
+    epji = epji / (epji[-1] + 1e-8)
+    epji = epji[:2]
     return Tji, epji

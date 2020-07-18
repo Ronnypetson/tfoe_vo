@@ -38,6 +38,7 @@ class KpT0_BA:
         self._T0 = {} # i -> T
         self._ep0 = {} # i -> ep
         self._Tgt = {} # i -> Tgt
+        self._gTgt = {} # i -> gTgt
         self._vids = {} # [i,j] -> vid
         self._avids = {} # [i,j] -> avid
         self._moving = {} # i -> moving
@@ -87,6 +88,10 @@ class KpT0_BA:
                 self._T0[i] = T0
                 self._ep0[i] = ep0
                 self._Tgt[i] = Tgt
+                if i > 0:
+                    self._gTgt[i] = T0 @ self._gTgt[i-1] #self.gt_odom[i_]
+                else:
+                    self._gTgt[i] = T0
                 self._vids[(i, i_)] = vids
                 self._avids[(i, i_)] = avids
                 self._moving[i] = moving
@@ -151,8 +156,8 @@ def main():
         for i in range(kp.seq_len):
             i_ = min(i+1, kp.seq_len-1)
             kp.init_frame(i)
-            T = kp._T0[i]
             Tgt = kp._Tgt[i]
+            T = kp._T0[i]
             g = ba_graph(i, i+2)
             p = {}
             f = {}
@@ -180,17 +185,21 @@ def main():
             T0 = SE3.from_matrix(T, normalize=True)
             #T0 = T0.inv().log()
             T0 = T0.log()
-            T00 = SE3.from_matrix(kp._T0[i+1], normalize=True).log()
+            #T00 = SE3.from_matrix(kp._T0[i+1], normalize=True).log()
+            #T00 = SE3.from_matrix(kp._gTgt[i+1], normalize=True).log()
             if i > 0:
-                gT[i+1] = (SE3.exp(T0).dot(SE3.exp(gT[i]))).log() # i -> i-1
-                gT[i+2] = (SE3.exp(T00).dot(SE3.exp(gT[i+1]))).log() ###
+                gT[i+1] = SE3.from_matrix(kp._gTgt[i], normalize=True).log() # i -> i-1
+                gT[i+2] = SE3.from_matrix(kp._gTgt[i+1], normalize=True).log() ###
+                gT[i+3] = SE3.from_matrix(kp._gTgt[i+2], normalize=True).log()
             else:
-                gT[i+1] = T0
-                gT[i+2] = (SE3.exp(T00).dot(SE3.exp(gT[i+1]))).log() ###
+                gT[i+1] = SE3.from_matrix(kp._gTgt[i], normalize=True).log()
+                gT[i+2] = SE3.from_matrix(kp._gTgt[i+1], normalize=True).log()
+                gT[i+3] = SE3.from_matrix(kp._gTgt[i+2], normalize=True).log()
             #T0 = np.zeros(6)
             foe0 = kp._ep0[i] / 1e3
             ge[i+1] = foe0
-            ge[i+2] = kp._ep0[i+2] / 1e3 ###
+            ge[i+2] = kp._ep0[i+1] / 1e3 ###
+            ge[i+3] = kp._ep0[i+2] / 1e3
             #foe0 = np.array([607.1928, 185.2157]) / 1e3
             Tfoe = opt.optimize(gT, ge, freeze=False)
             #Tfoe = np.zeros((ge.shape[0], 8))
@@ -217,7 +226,11 @@ def main():
             T_ = Tfoe[i+1, :6]
             foe = Tfoe[i+1, 6:]
 
-            #print('diff', np.linalg.norm(gT[:i + 3]-Tfoe[:i + 3, :6]))
+            #print(gT[:i+5])
+            #print(Tfoe[:i+5, :6])
+            #input()
+
+            #print('diff', np.linalg.norm(gT[:i + 5]-Tfoe[:i + 5, :6]))
             gT[i+1] = T_.copy()
 
             #T_ = gT[i]
@@ -225,8 +238,10 @@ def main():
             T_ = SE3.exp(T_).as_matrix() # .inv()
             if i > 0:
                 T_ = T_ @ np.linalg.inv(SE3.exp(gT[i]).as_matrix())
+                #T_ = np.linalg.inv(SE3.exp(gT[i]).as_matrix()) @ T_
             #T_ = norm_t(T_, normT)
             poses_.append(norm_t(T_.copy(), normT))
+            #poses_.append(T_.copy())
             pose0 = pose0 @ T_
             W_poses.append(pose0)
 

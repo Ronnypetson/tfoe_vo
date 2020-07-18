@@ -203,7 +203,7 @@ def main():
             ge[i+2] = kp._ep0[i+1] / 1e3 ###
             #ge[i+3] = kp._ep0[i+2] / 1e3
             #foe0 = np.array([607.1928, 185.2157]) / 1e3
-            Tfoe = opt.optimize(gT, ge, freeze=False)
+            Tfoe = opt.optimize(gT, ge, freeze=True)
             #Tfoe = np.zeros((ge.shape[0], 8))
 
             print(opt.min_obj)

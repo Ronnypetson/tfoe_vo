@@ -86,21 +86,23 @@ class OptSingle:
 
         y = 0.0
         for ij in g:
-            print(ij)
-            Tij, foeij = compose(ij[0], ij[1], T.clone(), foe.clone(), c)
+            #print(ij)
+            Tij, foeij, reg = compose(ij[0]+1, ij[1]+1, T.clone(), foe.clone(), c)
             #print(Tij.detach().numpy())
             #print(torch.inverse(Tij).detach().numpy())
-            print(foeij.detach().numpy())
+            #print(foeij.detach().numpy())
             x_rep = reproj_tc_foe_ba(torch.from_numpy(self.x[ij]),
                                      torch.from_numpy(self.x_[ij]),
                                      Tij, foeij, c)
             yij = F.smooth_l1_loss(c_ @ torch.from_numpy(self.x_[ij]), x_rep)
-            if ij[1] - ij[0] == 2:
+            if ij[1] - ij[0] == -1:
                 #print(foeij.detach().numpy())
                 #print(yij)
-                y = y + yij
+                #print(ij)
+                #print(Tij.detach().numpy())
+                y = y + yij # + 1e-6*reg
             #y = y + yij
-        input()
+        #input()
 
         y = y / 1 #len(g)
         y.backward()
@@ -118,12 +120,12 @@ class OptSingle:
         Tfoe0 = Tfoe0.reshape((-1,))
         #Tfoe0 = np.expand_dims(Tfoe0, axis=-1)
 
-        #res = minimize(self.objective,
-        #               Tfoe0, method='BFGS',
-        #               jac=True,
-        #               options={'disp': False,
-        #                        'maxiter': 1000,
-        #                        'gtol': 1e-10})
+        # res = minimize(self.objective,
+        #                Tfoe0, method='BFGS',
+        #                jac=True,
+        #                options={'disp': False,
+        #                         'maxiter': 1000,
+        #                         'gtol': 1e-10})
 
         bounds = []
         if freeze:
@@ -134,8 +136,11 @@ class OptSingle:
             #for par in Tfoe0[6:]:
             #    bounds.append((None, None))
         else:
-            for par in Tfoe0:
-                bounds.append((None, None))
+            for i, par in enumerate(Tfoe0):
+                if i % 8 > 5 and False:
+                    bounds.append((par-1e-1, par+1e-1))
+                else:
+                    bounds.append((None, None))
 
         res = minimize(self.objective,
                        Tfoe0, method='L-BFGS-B',
@@ -145,7 +150,8 @@ class OptSingle:
                        options={'disp': False,
                                 'maxiter': 1e3,
                                 'gtol': 1e-10,
-                                'ftol': 1e-10})
+                                'ftol': 1e-10,
+                                'maxcor': 24})
 
         #res = minimize(self.objective,
         #               Tfoe0, method='BFGS',

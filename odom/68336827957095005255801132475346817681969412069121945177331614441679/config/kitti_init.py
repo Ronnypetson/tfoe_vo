@@ -145,6 +145,7 @@ class KpT0_BA:
             self._flow[(i, j)] = kp1 - kp0
             self._vids[(i, j)] = vids
             self._avids[(i, j)] = avids
+            #print(len(self._vids[(i, j)]), len(self._vids[(j, i)]))
             #self._Tij0[(i, j)] = T0
         return kp0, self._flow[(i, j)]
 
@@ -226,7 +227,7 @@ def main():
             ge[i+2] = kp._ep0[i+1] / 1e3 ###
             ge[i+3] = kp._ep0[i+2] / 1e3
             #foe0 = np.array([607.1928, 185.2157]) / 1e3
-            Tfoe = opt.optimize(gT, ge, freeze=True)
+            Tfoe = opt.optimize(gT, ge, freeze=False)
             #Tfoe = np.zeros((ge.shape[0], 8))
 
             print(opt.min_obj)

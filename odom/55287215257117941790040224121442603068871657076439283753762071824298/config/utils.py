@@ -199,5 +199,5 @@ def compose(i, j, T, ep, c):
     reg = torch.norm(c_ @ epji)
     epji = epji / 1e3
     epji = epji[:2]
-    #print(epji)
+    print(epji)
     return Tji, epji, reg

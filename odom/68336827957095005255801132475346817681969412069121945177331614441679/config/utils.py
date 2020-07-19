@@ -153,14 +153,14 @@ def ba_graph(i, j):
     if i > j:
         i, j = min(i, j), max(i, j)
     g = []
-    for start in range(i, j+1):
-        for end in range(start+1, j+1):
-            if start != end:
-                g.append((start, end))
     #for start in range(i, j+1):
-    #    for end in range(i, j+1):
+    #    for end in range(start+1, j+1):
     #        if start != end:
     #            g.append((start, end))
+    for start in range(i, j+1):
+        for end in range(i, j+1):
+            if start != end:
+                g.append((start, end))
     #for start in range(i, j):
     #    g.append((start, start + 1))
     #    g.append((start + 1, start))
@@ -184,7 +184,7 @@ def compose(i, j, T, ep, c):
     Tji = T[j] @ torch.inverse(T[i])
     #Tji[:3, 3:] = Tji[:3, 3:].clone() / (torch.norm(Tji[:3, 3:].clone()) + 1e-8)
     #t = Tji[:3, 3:]
-    #ep_ = (c @ (t/(t[-1]+1e-10))) / 1e3
+    #ep_ = (c @ (t/(t[-1]+1e-8))) / 1e3
     #print(ep_.detach().numpy())
     #ep_ = ep_[:2]
     ac = torch.zeros(3, 1).double()
@@ -195,7 +195,7 @@ def compose(i, j, T, ep, c):
     if i > j:
         epji = c @ Tji[:3, :3] @ c_ @ epji
 
-    epji = epji / (epji[-1] + 1e-10)
+    epji = epji / (epji[-1] + 1e-8)
     reg = torch.norm(c_ @ epji)
     epji = epji / 1e3
     epji = epji[:2]

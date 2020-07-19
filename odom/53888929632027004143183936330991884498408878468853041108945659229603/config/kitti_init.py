@@ -138,6 +138,7 @@ class KpT0_BA:
 
             if len(mask) > 3:
                 vids_ = [k for k in range(len(mask)) if mask[k] == 1.0]
+                print(len(vids_))
                 if len(vids_) > 3:
                     vids = vids_
 
@@ -145,6 +146,9 @@ class KpT0_BA:
             self._flow[(i, j)] = kp1 - kp0
             self._vids[(i, j)] = vids
             self._avids[(i, j)] = avids
+            print(i, j)
+            print(len(self._vids[(i, j)]), len(self._vids[(i, j-1)]), len(self._vids[(j-1, j)]))
+            input()
             #self._Tij0[(i, j)] = T0
         return kp0, self._flow[(i, j)]
 

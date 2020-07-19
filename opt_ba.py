@@ -95,7 +95,7 @@ class OptSingle:
                                      torch.from_numpy(self.x_[ij]),
                                      Tij, foeij, c)
             yij = F.smooth_l1_loss(c_ @ torch.from_numpy(self.x_[ij]), x_rep)
-            #if ij[1] - ij[0] == -1:
+            #if ij[1] - ij[0] == 2:
             #    #print(foeij.detach().numpy())
             #    #print(yij)
             #    #print(ij)

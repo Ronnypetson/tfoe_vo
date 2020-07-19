@@ -2,25 +2,22 @@ import numpy as np
 from scipy.optimize import minimize
 from reproj import reproj, depth, gen_pts, E_from_T
 from reproj import reproj_tc, depth_tc, reproj_tc_foe
-from reproj import reproj_tc_, reproj_tc_foe_ba
+from reproj import reproj_tc_
 from liegroups import SE3
 import torch
 import torch.nn.functional as F
 from liegroups.torch import SE3 as SE3tc
 from hessian import jacobian, hessian
-from utils import compose
 
 
 class OptSingle:
-    def __init__(self, x, x_, c, g):
-        ''' x and x_ are (i, j) -> 3xN
+    def __init__(self, x, x_, c, E):
+        ''' x and x_ are 3xN
         '''
-        self.g = g
-        self.x = x # (i, j) -> x
-        self.x_ = x_  # (i, j) -> x_
-        #self.f = {}  # (i, j) -> f
-        #for k in x:
-        #    self.f[k] = x_[k] - x[k]
+        self.x = x
+        self.x_ = x_
+        self.f = x_-x
+        n = x.shape[1]
         self.T = np.zeros(6)
         self.foe = np.zeros(2)
         self.c = torch.from_numpy(c) #.float()
@@ -66,45 +63,44 @@ class OptSingle:
         return hess
     
     def objective(self, Tfoe, grad=False):
-        ''' Tfoe is n*8
+        ''' Tfoe is 8
         '''
         Tfoe = torch.from_numpy(Tfoe)
+        #Tfoe = Tfoe.float()
         Tfoe = Tfoe.requires_grad_(True)
         Tfoe.retain_grad()
         Tfoe_ = Tfoe.clone()
-        Tfoe_ = Tfoe_.reshape(-1, 8)
-
-        g = self.g # bundle graph
-        c = self.c
-        c_ = self.c_
-
-        T = Tfoe_[:, :6]
-        foe = Tfoe_[:, 6:]
+        
+        T = Tfoe_[:6]
+        foe = Tfoe_[6:]
         foe = foe.unsqueeze(-1)
         T = SE3tc.exp(T.clone())
         T = T.as_matrix()
+        
+        c = self.c
+        c_ = self.c_
 
-        y = 0.0
-        for ij in g:
-            #print(ij)
-            Tij, foeij, reg = compose(ij[0], ij[1], T.clone(), foe.clone(), c)
-            #print(Tij.detach().numpy())
-            #print(torch.inverse(Tij).detach().numpy())
-            #print(foeij.detach().numpy())
-            x_rep = reproj_tc_foe_ba(torch.from_numpy(self.x[ij]),
-                                     torch.from_numpy(self.x_[ij]),
-                                     Tij, foeij, c)
-            yij = F.smooth_l1_loss(c_ @ torch.from_numpy(self.x_[ij]), x_rep)
-            #if ij[1] - ij[0] == -1:
-            #    #print(foeij.detach().numpy())
-            #    #print(yij)
-            #    #print(ij)
-            #    #print(Tij.detach().numpy())
-            #    y = y + yij # + 1e-6*reg
-            y = y + yij
-        #input()
+        #x_rep = reproj_tc_(torch.from_numpy(self.x),
+        #                   torch.from_numpy(self.x_),
+        #                   T, foe, c)
 
-        y = y / len(g)
+        x_rep = reproj_tc_foe(torch.from_numpy(self.x),
+                              torch.from_numpy(self.x_),
+                              T, foe, c)
+
+        #y = c_ @ torch.from_numpy(self.x_) - x_rep
+        #y = torch.mean(y**2.0) # + epi_loss
+
+        #t = torch.inverse(T)[:3, 3:]
+        #t = t / (torch.norm(t) + 1e-8)
+        #z = torch.ones(1, 1).double()
+        #foe_ = foe * 100.0  ###
+        #foe_ = torch.cat([foe_, z], dim=0)
+        #foe_ = c_ @ foe_
+        #foe_ = foe_ / torch.norm(foe_)
+        #reg = 1.0 - (t.T @ foe_)[0, 0]
+
+        y = F.smooth_l1_loss(c_ @ torch.from_numpy(self.x_), x_rep) # + 1e-1*reg
         y.backward()
         gradTfoe = Tfoe.grad.detach().numpy()
         y = y.detach().numpy()
@@ -112,35 +108,31 @@ class OptSingle:
         return y, gradTfoe
 
     def optimize(self, T0, foe0, freeze=True):
-        ''' T0 is n,6
-            foe0 is n,2
+        ''' T0 is 6
+            foe0 is 2
         '''
         self.min_obj = np.inf
-        Tfoe0 = np.concatenate([T0, foe0], axis=-1) # n,8
-        Tfoe0 = Tfoe0.reshape((-1,))
-        #Tfoe0 = np.expand_dims(Tfoe0, axis=-1)
-
-        # res = minimize(self.objective,
-        #                Tfoe0, method='BFGS',
-        #                jac=True,
-        #                options={'disp': False,
-        #                         'maxiter': 1000,
-        #                         'gtol': 1e-10})
+        Tfoe0 = np.concatenate([T0, foe0], axis=0)
+        Tfoe0 = np.expand_dims(Tfoe0, axis=-1)
+        
+        #res = minimize(self.objective,
+        #               Tfoe0, method='BFGS',
+        #               jac=True,
+        #               options={'disp': False,
+        #                        'maxiter': 1000,
+        #                        'gtol': 1e-10})
 
         bounds = []
         if freeze:
-            for par in Tfoe0:
+            #for par in Tfoe0:
+            #    bounds.append((par-1e-5, par+1e-5))
+            for par in Tfoe0[:6]:
                 bounds.append((par-1e-10, par+1e-10))
-            #for par in Tfoe0[:6]:
-            #    bounds.append((par-1e-10, par+1e-10))
-            #for par in Tfoe0[6:]:
-            #    bounds.append((None, None))
+            for par in Tfoe0[6:]:
+                bounds.append((None, None))
         else:
-            for i, par in enumerate(Tfoe0):
-                if i % 8 > 5 and False:
-                    bounds.append((par-1e-1, par+1e-1))
-                else:
-                    bounds.append((None, None))
+            for par in Tfoe0:
+                bounds.append((None, None))
 
         res = minimize(self.objective,
                        Tfoe0, method='L-BFGS-B',
@@ -150,8 +142,7 @@ class OptSingle:
                        options={'disp': False,
                                 'maxiter': 1e3,
                                 'gtol': 1e-10,
-                                'ftol': 1e-10,
-                                'maxcor': 24})
+                                'ftol': 1e-10})
 
         #res = minimize(self.objective,
         #               Tfoe0, method='BFGS',

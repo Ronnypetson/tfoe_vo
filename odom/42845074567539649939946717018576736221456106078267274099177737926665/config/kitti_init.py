@@ -111,16 +111,16 @@ class KpT0_BA:
         assert i != j, msg
 
         self.init_frame(i)
-        self.init_frame(j)
-        kp0 = self._kpts[i]
-        if (i, j) not in self._flow:
+        #self.init_frame(j)
+        #kp0 = self._kpts[i]
+        if (i, j) not in self._kptsij:
             im_i = self.kitti.get_cam0(i)
             im_i = np.array(im_i)
             im_j = self.kitti.get_cam0(j)
             im_j = np.array(im_j)
 
-            #kp0 = self.feature_detector.detect(im_i, None)
-            #kp0 = np.array([[x.pt] for x in kp0], dtype=np.float32)
+            kp0 = self.feature_detector.detect(im_i, None)
+            kp0 = np.array([[x.pt] for x in kp0], dtype=np.float32)
 
             kp1, st, err = cv2.calcOpticalFlowPyrLK(im_i, im_j, kp0,
                                                    None, **self.lk_params)
@@ -128,24 +128,18 @@ class KpT0_BA:
             E, mask = cv2.findEssentialMat(kp1, kp0, self.camera_matrix,
                                            cv2.RANSAC, 0.999, 0.1, None)
 
-            vids = [k for k in range(len(mask)) if mask[k] == 1.0]
+            vids = [j for j in range(len(mask)) if mask[j] == 1.0]
             avids = vids
 
             _, R, t, mask = cv2.recoverPose(E, kp1, kp0, self.camera_matrix, mask=mask)
-            #T0 = np.eye(4)
-            #T0[:3, :3] = R
-            #T0[:3, 3:] = t
+            T0 = np.eye(4)
+            T0[:3, :3] = R
+            T0[:3, 3:] = t
 
-            if len(mask) > 3:
-                vids_ = [k for k in range(len(mask)) if mask[k] == 1.0]
-                if len(vids_) > 3:
-                    vids = vids_
-
-            #self._kptsij[(i, j)] = kp0
+            self._kptsij[(i, j)] = kp0
             self._flow[(i, j)] = kp1 - kp0
             self._vids[(i, j)] = vids
             self._avids[(i, j)] = avids
-            #print(len(self._vids[(i, j)]), len(self._vids[(j, i)]))
             #self._Tij0[(i, j)] = T0
         return kp0, self._flow[(i, j)]
 
@@ -189,8 +183,8 @@ def main():
             f = {}
             for ij in g:
                 kp.init_BA(ij[0], ij[1])
-                p[ij] = kp._kpts[ij[0]]
-                #p[ij] = kp._kptsij[ij]
+                #p[ij] = kp._kpts[ij[0]]
+                p[ij] = kp._kptsij[ij]
                 f[ij] = kp._flow[ij]
 
             normT = np.linalg.norm(Tgt[:3, 3])

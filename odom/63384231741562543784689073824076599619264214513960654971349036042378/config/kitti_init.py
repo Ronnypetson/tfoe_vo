@@ -145,7 +145,7 @@ class KpT0_BA:
             self._flow[(i, j)] = kp1 - kp0
             self._vids[(i, j)] = vids
             self._avids[(i, j)] = avids
-            #print(len(self._vids[(i, j)]), len(self._vids[(j, i)]))
+            print(len(self._vids[(i, j)]), len(self._vids[(j, i)]))
             #self._Tij0[(i, j)] = T0
         return kp0, self._flow[(i, j)]
 

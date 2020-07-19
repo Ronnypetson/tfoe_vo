@@ -129,23 +129,20 @@ class KpT0_BA:
                                            cv2.RANSAC, 0.999, 0.1, None)
 
             vids = [k for k in range(len(mask)) if mask[k] == 1.0]
+            print(i, j)
+            print(len(vids))
+            input()
             avids = vids
 
-            _, R, t, mask = cv2.recoverPose(E, kp1, kp0, self.camera_matrix, mask=mask)
+            #_, R, t, mask = cv2.recoverPose(E, kp1, kp0, self.camera_matrix, mask=mask)
             #T0 = np.eye(4)
             #T0[:3, :3] = R
             #T0[:3, 3:] = t
-
-            if len(mask) > 3:
-                vids_ = [k for k in range(len(mask)) if mask[k] == 1.0]
-                if len(vids_) > 3:
-                    vids = vids_
 
             #self._kptsij[(i, j)] = kp0
             self._flow[(i, j)] = kp1 - kp0
             self._vids[(i, j)] = vids
             self._avids[(i, j)] = avids
-            #print(len(self._vids[(i, j)]), len(self._vids[(j, i)]))
             #self._Tij0[(i, j)] = T0
         return kp0, self._flow[(i, j)]
 

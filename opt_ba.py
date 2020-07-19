@@ -18,9 +18,9 @@ class OptSingle:
         self.g = g
         self.x = x # (i, j) -> x
         self.x_ = x_  # (i, j) -> x_
-        self.f = {}  # (i, j) -> f
-        for k in x:
-            self.f[k] = x_[k] - x[k]
+        #self.f = {}  # (i, j) -> f
+        #for k in x:
+        #    self.f[k] = x_[k] - x[k]
         self.T = np.zeros(6)
         self.foe = np.zeros(2)
         self.c = torch.from_numpy(c) #.float()
@@ -86,18 +86,23 @@ class OptSingle:
 
         y = 0.0
         for ij in g:
-            #print(ij)
+            print(ij)
             Tij, foeij = compose(ij[0], ij[1], T.clone(), foe.clone(), c)
             #print(Tij.detach().numpy())
-            #print(foeij.detach().numpy())
+            #print(torch.inverse(Tij).detach().numpy())
+            print(foeij.detach().numpy())
             x_rep = reproj_tc_foe_ba(torch.from_numpy(self.x[ij]),
                                      torch.from_numpy(self.x_[ij]),
                                      Tij, foeij, c)
             yij = F.smooth_l1_loss(c_ @ torch.from_numpy(self.x_[ij]), x_rep)
-            y = y + yij
-        #input()
+            if ij[1] - ij[0] == 2:
+                #print(foeij.detach().numpy())
+                #print(yij)
+                y = y + yij
+            #y = y + yij
+        input()
 
-        y = y / len(g)
+        y = y / 1 #len(g)
         y.backward()
         gradTfoe = Tfoe.grad.detach().numpy()
         y = y.detach().numpy()

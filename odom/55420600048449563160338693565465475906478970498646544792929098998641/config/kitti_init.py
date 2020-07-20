@@ -183,7 +183,7 @@ def main():
             kp.init_frame(i)
             Tgt = kp._Tgt[i]
             T = kp._T0[i]
-            g = ba_graph(i, i+2)
+            g = ba_graph(i, i+1)
             p = {}
             f = {}
             for ij in g:
@@ -215,16 +215,16 @@ def main():
             if i > 0:
                 gT[i+1] = SE3.from_matrix(kp._gTgt[i], normalize=True).log() # i -> i-1
                 gT[i+2] = SE3.from_matrix(kp._gTgt[i+1], normalize=True).log() ###
-                gT[i+3] = SE3.from_matrix(kp._gTgt[i+2], normalize=True).log()
+                #gT[i+3] = SE3.from_matrix(kp._gTgt[i+2], normalize=True).log()
             else:
                 gT[i+1] = SE3.from_matrix(kp._gTgt[i], normalize=True).log()
                 gT[i+2] = SE3.from_matrix(kp._gTgt[i+1], normalize=True).log()
-                gT[i+3] = SE3.from_matrix(kp._gTgt[i+2], normalize=True).log()
+                #gT[i+3] = SE3.from_matrix(kp._gTgt[i+2], normalize=True).log()
             #T0 = np.zeros(6)
             foe0 = kp._ep0[i] / 1e3
             ge[i+1] = foe0
             ge[i+2] = kp._ep0[i+1] / 1e3 ###
-            ge[i+3] = kp._ep0[i+2] / 1e3
+            #ge[i+3] = kp._ep0[i+2] / 1e3
             #foe0 = np.array([607.1928, 185.2157]) / 1e3
             Tfoe = opt.optimize(gT, ge, freeze=False)
             #Tfoe = np.zeros((ge.shape[0], 8))

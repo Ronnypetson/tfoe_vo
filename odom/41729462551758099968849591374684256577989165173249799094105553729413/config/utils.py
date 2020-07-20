@@ -157,13 +157,13 @@ def ba_graph(i, j):
     #    for end in range(start+1, j+1):
     #        if start != end:
     #            g.append((start, end))
-    for start in range(i, j+1):
-        for end in range(i, j+1):
-            if start != end:
-                g.append((start, end))
-    #for start in range(i, j):
-    #    g.append((start, start + 1))
-    #    g.append((start + 1, start))
+    #for start in range(i, j+1):
+    #    for end in range(i, j+1):
+    #        if start != end:
+    #            g.append((start, end))
+    for start in range(i, j):
+        g.append((start, start + 1))
+        g.append((start + 1, start))
     return g
 
 
@@ -182,8 +182,7 @@ def compose(i, j, T, ep, c):
 
     c_ = torch.inverse(c)
     Tji = T[j] @ torch.inverse(T[i])
-    Tji[:3, 3:] = Tji[:3, 3:].clone()\
-                  / (torch.norm(Tji[:3, 3:].clone()) + 1e-10) # kinda weird
+    #Tji[:3, 3:] = Tji[:3, 3:].clone() / (torch.norm(Tji[:3, 3:].clone()) + 1e-8)
     #t = Tji[:3, 3:]
     #ep_ = (c @ (t/(t[-1]+1e-10))) / 1e3
     #print(ep_.detach().numpy())

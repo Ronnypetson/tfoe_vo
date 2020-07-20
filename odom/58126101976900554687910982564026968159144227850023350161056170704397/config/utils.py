@@ -153,14 +153,14 @@ def ba_graph(i, j):
     if i > j:
         i, j = min(i, j), max(i, j)
     g = []
-    #for start in range(i, j+1):
-    #    for end in range(start+1, j+1):
-    #        if start != end:
-    #            g.append((start, end))
     for start in range(i, j+1):
-        for end in range(i, j+1):
+        for end in range(start+1, j+1):
             if start != end:
                 g.append((start, end))
+    #for start in range(i, j+1):
+    #    for end in range(i, j+1):
+    #        if start != end:
+    #            g.append((start, end))
     #for start in range(i, j):
     #    g.append((start, start + 1))
     #    g.append((start + 1, start))

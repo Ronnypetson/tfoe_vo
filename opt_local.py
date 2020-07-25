@@ -1,14 +1,14 @@
 import numpy as np
 from scipy.optimize import minimize
-from reproj import reproj, depth, gen_pts, E_from_T
-from reproj import reproj_tc, depth_tc, reproj_tc_foe
-from reproj import reproj_tc_, reproj_tc_foe_ba
+from reproj import gen_pts
+from reproj import reproj_tc_foe
+from reproj import reproj_tc_foe_local
 from liegroups import SE3
 import torch
 import torch.nn.functional as F
 from liegroups.torch import SE3 as SE3tc
 from hessian import jacobian, hessian
-from utils import compose
+from utils import compose_local
 
 
 class OptSingle:
@@ -87,13 +87,13 @@ class OptSingle:
         y = 0.0
         for ij in g:
             #print(ij)
-            Tij, foeij, reg = compose(ij[0], ij[1], T.clone(), foe.clone(), c)
+            Tij, foeij = compose_local(ij[0], ij[1], T.clone(), foe.clone(), c)
             #print(Tij.detach().numpy())
             #print(torch.inverse(Tij).detach().numpy())
             #print(foeij.detach().numpy())
-            x_rep = reproj_tc_foe_ba(torch.from_numpy(self.x[ij]),
-                                     torch.from_numpy(self.x_[ij]),
-                                     Tij, foeij, c)
+            x_rep = reproj_tc_foe_local(torch.from_numpy(self.x[ij]),
+                                        torch.from_numpy(self.x_[ij]),
+                                        Tij, foeij, c)
             yij = F.smooth_l1_loss(c_ @ torch.from_numpy(self.x_[ij]), x_rep)
             #if ij[1] - ij[0] == 2:
             #    #print(foeij.detach().numpy())
@@ -102,6 +102,7 @@ class OptSingle:
             #    #print(Tij.detach().numpy())
             #    y = y + yij # + 1e-6*reg
             y = y + yij
+        #input()
 
         y = y / len(g)
         y.backward()
@@ -137,10 +138,7 @@ class OptSingle:
             #    bounds.append((None, None))
         else:
             for i, par in enumerate(Tfoe0):
-                if i // 8 == s:
-                    bounds.append((par - 1e-10, par + 1e-10))
-                else:
-                    bounds.append((None, None))
+                bounds.append((None, None))
 
         res = minimize(self.objective,
                        Tfoe0, method='L-BFGS-B',

@@ -129,6 +129,9 @@ class KpT0:
 
 def main():
     seq_id = sys.argv[1]
+    run_tag = sys.argv[2]
+    exp_dir = sys.argv[3]
+
     run_date = time.asctime().replace(' ', '_')
     state_fns = ['kpT0.py', 'opt.py', 'utils.py', 'reproj.py', 'opt.py']
     run_hash = files_to_hash(state_fns)
@@ -168,11 +171,11 @@ def main():
             x_ = np.concatenate([x_, z], axis=0)
 
             opt = OptSingle(x, x_, c, kp.E)
-            T0 = SE3.from_matrix(T, normalize=True)
-            T0 = T0.inv().log()
-            #T0 = np.zeros(6)
-            foe0 = kp.ep0 / 1e3
-            #foe0 = np.array([607.1928, 185.2157]) / 1e3
+            #T0 = SE3.from_matrix(T, normalize=True)
+            #T0 = T0.inv().log()
+            T0 = np.zeros(6)
+            #foe0 = kp.ep0 / 1e3
+            foe0 = np.array([607.1928, 185.2157]) / 1e3
             if kp.moving:
                 Tfoe = opt.optimize(T0, foe0, freeze=False)
             else:
@@ -181,7 +184,7 @@ def main():
                 opt.min_obj = 0.0
 
             print(opt.min_obj)
-            if opt.min_obj > failure_eps:
+            if opt.min_obj > failure_eps and False:
                 print('Initialization failure.')
                 x = p[kp.avids, 0, :].transpose(1, 0)  # kp.avids
                 z = np.ones((1, x.shape[-1]))
@@ -205,7 +208,7 @@ def main():
             T_ = SE3.exp(T_).inv().as_matrix()
             #T_ = norm_t(T_, normT)
             poses_.append(norm_t(T_.copy(), normT))
-            pose0 = pose0 @ T_
+            pose0 = pose0 @ norm_t(T_.copy(), normT) #T_
             W_poses.append(pose0)
 
             if i % 30 == 29:
@@ -227,8 +230,10 @@ def main():
 
             i += 1
         save_poses(W_poses, f'{run_dir}/KITTI_{seq_id}.txt')
+        save_poses(W_poses, f'{exp_dir}/KITTI_{seq_id}_{run_tag}.txt')
     except KeyboardInterrupt as e:
         save_poses(W_poses, f'{run_dir}/KITTI_{seq_id}.txt')
+        save_poses(W_poses, f'{exp_dir}/KITTI_{seq_id}_{run_tag}.txt')
         raise e
 
 

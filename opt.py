@@ -138,11 +138,11 @@ class OptSingle:
                        Tfoe0, method='L-BFGS-B',
                        jac=True,
                        bounds=bounds,
-                       #tol=1e-14,
+                       tol=1e-14,
                        options={'disp': False,
                                 'maxiter': 1e3,
-                                'gtol': 1e-10,
-                                'ftol': 1e-10})
+                                'gtol': 1e-12,
+                                'ftol': 1e-12})
 
         #res = minimize(self.objective,
         #               Tfoe0, method='BFGS',

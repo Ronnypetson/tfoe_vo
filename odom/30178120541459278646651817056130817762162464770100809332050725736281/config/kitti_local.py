@@ -6,7 +6,7 @@ import cv2
 import torch
 from liegroups import SE3
 #from matplotlib import pyplot as plt
-from opt_ba import OptSingle
+from opt_local import OptSingle
 import pykitti
 from versions import files_to_hash, save_state
 from utils import norm_t, plot_trajs, ba_graph
@@ -132,9 +132,9 @@ class KpT0_BA:
             avids = vids
 
             _, R, t, mask = cv2.recoverPose(E, kp1, kp0, self.camera_matrix, mask=mask)
-            #T0 = np.eye(4)
-            #T0[:3, :3] = R
-            #T0[:3, 3:] = t
+            T0 = np.eye(4)
+            T0[:3, :3] = R
+            T0[:3, 3:] = t
 
             if len(mask) > 3:
                 vids_ = [k for k in range(len(mask)) if mask[k] == 1.0]
@@ -152,7 +152,7 @@ class KpT0_BA:
 def main():
     seq_id = sys.argv[1]
     run_date = time.asctime().replace(' ', '_')
-    state_fns = ['kitti_init.py', 'opt_ba.py', 'utils.py', 'reproj.py']
+    state_fns = ['kitti_local.py', 'opt_local.py', 'utils.py', 'reproj.py']
     run_hash = files_to_hash(state_fns)
     run_dir = f'odom/{run_hash}/{run_date}/'
     save_state('odom/', state_fns)
@@ -179,11 +179,11 @@ def main():
 
     try:
         for i in range(kp.seq_len):
-            i_ = min(i+1, kp.seq_len-1)
+            i_ = min(i + 1, kp.seq_len - 1)
             kp.init_frame(i)
             Tgt = kp._Tgt[i]
             T = kp._T0[i]
-            g = ba_graph(i, i+(baw-1))
+            g = ba_graph(i, i + (baw - 1))
             p = {}
             f = {}
             for ij in g:
@@ -209,63 +209,26 @@ def main():
             T0 = SE3.from_matrix(T, normalize=True)
             #T0 = T0.inv().log()
             T0 = T0.log()
-            #T00 = SE3.from_matrix(kp._T0[i+1], normalize=True).log()
-            #T00 = SE3.from_matrix(kp._gTgt[i+1], normalize=True).log()
             for j in range(baw):
-                gT[i + j + 1] = SE3.from_matrix(kp._gTgt[i + j], normalize=True).log()
-            #gT[i+1] = SE3.from_matrix(kp._gTgt[i], normalize=True).log() # i -> i-1
-            #gT[i+2] = SE3.from_matrix(kp._gTgt[i+1], normalize=True).log() ###
-            #gT[i+3] = SE3.from_matrix(kp._gTgt[i+2], normalize=True).log()
-            #gT[i+4] = SE3.from_matrix(kp._gTgt[i+3], normalize=True).log()
+                #gT[i + j + 1] = SE3.from_matrix(kp._gTgt[i + j], normalize=True).log()
+                gT[i + j] = T0.copy()
 
-            #T0 = np.zeros(6)
-            #foe0 = kp._ep0[i] / 1e3
             for j in range(baw):
-                ge[i+j+1] = kp._ep0[i+j] / 1e3
-            #ge[i+2] = kp._ep0[i+1] / 1e3 ###
-            #ge[i+3] = kp._ep0[i+2] / 1e3
-            #ge[i+4] = kp._ep0[i+3] / 1e3
+                ge[i + j] = kp._ep0[i + j] / 1e3
 
-            #foe0 = np.array([607.1928, 185.2157]) / 1e3
-            Tfoe = opt.optimize(gT, ge, freeze=False)
-            #Tfoe = np.zeros((ge.shape[0], 8))
-
+            Tfoe = opt.optimize(gT[i:i + baw], ge[i:i + baw], freeze=False)
             print(opt.min_obj)
-            if opt.min_obj > failure_eps and False:
-                print('Initialization failure.')
-                x = p[kp._avids[i], 0, :].transpose(1, 0)  # kp.avids
-                z = np.ones((1, x.shape[-1]))
-                x = np.concatenate([x, z], axis=0)
-
-                x_ = p + f
-                x_ = x_[kp._avids[i], 0, :].transpose(1, 0)  # kp.avids
-                x_ = np.concatenate([x_, z], axis=0)
-
-                opt = OptSingle(x, x_, c, None)
-                T0 = np.zeros(6)
-                #foe0 = np.array([w/2.0, h/2.0])
-                foe0 = np.array([607.1928, 185.2157]) / 1e3
-                Tfoe = opt.optimize(T0, foe0, freeze=False)
-                print(f'New x0 status: {opt.min_obj <= failure_eps}')
 
             Tfoe = Tfoe.reshape(-1, 8)
-            T_ = Tfoe[i+1, :6]
-            foe = Tfoe[i+1, 6:]
+            T_ = Tfoe[0, :6]
+            foe = Tfoe[0, 6:]
 
-            #print(gT[:i+5])
-            #print(Tfoe[:i+5, :6])
-            #input()
+            #gT[i] = T_.copy()
+            gT[i:i + baw] = Tfoe[:, :6]
+            ge[i:i + baw] = Tfoe[:, 6:]
 
-            #print('diff', np.linalg.norm(gT[:i + 5]-Tfoe[:i + 5, :6]))
-            gT[i+1] = T_.copy()
-
-            #T_ = gT[i]
             print(foe)
             T_ = SE3.exp(T_).as_matrix() # .inv()
-            if i > 0:
-                T_ = T_ @ np.linalg.inv(SE3.exp(gT[i]).as_matrix())
-                #T_ = np.linalg.inv(SE3.exp(gT[i]).as_matrix()) @ T_
-            #T_ = norm_t(T_, normT)
             poses_.append(norm_t(T_.copy(), normT))
             #poses_.append(T_.copy())
             pose0 = pose0 @ T_
@@ -289,7 +252,6 @@ def main():
             if i % 10 == 9 and show_cloud:
                 plot_pt_cloud(np.array(cloud_all), f'{run_dir}/{seq_id}_pt_cloud.svg')
 
-            i += 1
         save_poses(W_poses, f'{run_dir}/KITTI_{seq_id}.txt')
     except KeyboardInterrupt as e:
         save_poses(W_poses, f'{run_dir}/KITTI_{seq_id}.txt')

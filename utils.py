@@ -205,7 +205,7 @@ def compose(i, j, T, ep, c):
     return Tji, epji, reg
 
 
-def compose_local(i, j, T, ep, c):
+def compose_local(i, j, T, ep, scale, c):
     '''
     T is n,4,4
     ep is n,2,1
@@ -233,7 +233,7 @@ def compose_local(i, j, T, ep, c):
     T_jt = torch.eye(4).double()
     ac = torch.zeros(3, 1).double()
     for k in range(j_, i_, -1):
-        ac += c @ T_jt[:3, :3] @ c_ @ ep[k - 1]
+        ac += scale[k - 1] * (c @ T_jt[:3, :3] @ c_ @ ep[k - 1])
         T_jt = T_jt.clone() @ T[k - 1]
     epji = ac.clone()
 

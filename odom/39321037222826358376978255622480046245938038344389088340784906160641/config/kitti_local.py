@@ -174,6 +174,7 @@ def main():
     cloud_all = np.zeros((3, 1))
     gT = np.zeros((kp.seq_len+1, 6))
     ge = np.zeros((kp.seq_len+1, 2))
+    gs = np.ones((kp.seq_len+1, 1))
     ge[0] = np.array([607.1928, 185.2157]) / 1e3
     baw = 3
 
@@ -216,18 +217,24 @@ def main():
             for j in range(baw):
                 ge[i + j] = kp._ep0[i + j] / 1e3
 
-            Tfoe = opt.optimize(gT[i:i + baw], ge[i:i + baw], freeze=False)
-            print(opt.min_obj)
+            Tfoe = opt.optimize(gT[i:i + baw],
+                                ge[i:i + baw],
+                                gs[i:i + baw],
+                                freeze=False)
+            print('loss', opt.min_obj)
 
-            Tfoe = Tfoe.reshape(-1, 8)
+            Tfoe = Tfoe.reshape(-1, 9)
             T_ = Tfoe[0, :6]
-            foe = Tfoe[0, 6:]
+            foe = Tfoe[0, 6:8]
+            sc = Tfoe[-1, 8:]
 
             #gT[i] = T_.copy()
             gT[i:i + baw] = Tfoe[:, :6]
-            ge[i:i + baw] = Tfoe[:, 6:]
+            ge[i:i + baw] = Tfoe[:, 6:8]
+            gs[i:i + baw] = Tfoe[:, 8:]
 
-            print(foe)
+            print('foe', foe)
+            print('scale', sc)
             T_ = SE3.exp(T_).as_matrix() # .inv()
             poses_.append(norm_t(T_.copy(), normT))
             #poses_.append(T_.copy())

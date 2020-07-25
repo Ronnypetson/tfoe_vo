@@ -66,20 +66,21 @@ class OptSingle:
         return hess
     
     def objective(self, Tfoe, grad=False):
-        ''' Tfoe is n*8
+        ''' Tfoe is n*9
         '''
         Tfoe = torch.from_numpy(Tfoe)
         Tfoe = Tfoe.requires_grad_(True)
         Tfoe.retain_grad()
         Tfoe_ = Tfoe.clone()
-        Tfoe_ = Tfoe_.reshape(-1, 8)
+        Tfoe_ = Tfoe_.reshape(-1, 9)
 
         g = self.g # bundle graph
         c = self.c
         c_ = self.c_
 
         T = Tfoe_[:, :6]
-        foe = Tfoe_[:, 6:]
+        foe = Tfoe_[:, 6:8]
+        scale = Tfoe_[:, 8:]
         foe = foe.unsqueeze(-1)
         T = SE3tc.exp(T.clone())
         T = T.as_matrix()
@@ -87,7 +88,8 @@ class OptSingle:
         y = 0.0
         for ij in g:
             #print(ij)
-            Tij, foeij = compose_local(ij[0], ij[1], T.clone(), foe.clone(), c)
+            Tij, foeij = compose_local(ij[0], ij[1],
+                                       T.clone(), foe.clone(), scale.clone(), c)
             #print(Tij.detach().numpy())
             #print(torch.inverse(Tij).detach().numpy())
             #print(foeij.detach().numpy())
@@ -111,13 +113,14 @@ class OptSingle:
         self.min_obj = min(self.min_obj, y)
         return y, gradTfoe
 
-    def optimize(self, T0, foe0, freeze=True):
+    def optimize(self, T0, foe0, scale, freeze=True):
         ''' T0 is n,6
             foe0 is n,2
+            scale is n,1
         '''
-        s = np.min([ij[0] for ij in self.g])
+        #s = np.min([ij[0] for ij in self.g])
         self.min_obj = np.inf
-        Tfoe0 = np.concatenate([T0, foe0], axis=-1) # n,8
+        Tfoe0 = np.concatenate([T0, foe0, scale], axis=-1) # n,8
         Tfoe0 = Tfoe0.reshape((-1,))
         #Tfoe0 = np.expand_dims(Tfoe0, axis=-1)
 

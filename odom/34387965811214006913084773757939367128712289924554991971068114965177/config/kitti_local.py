@@ -177,7 +177,7 @@ def main():
     ge = np.zeros((kp.seq_len+1, 2))
     gs = np.ones((kp.seq_len+1, 1))
     ge[0] = np.array([607.1928, 185.2157]) / 1e3
-    baw = 3
+    baw = 2
 
     try:
         for i in range(kp.seq_len):
@@ -245,9 +245,11 @@ def main():
             sc = Tfoe[:, 8]
 
             #gT[i] = T_.copy()
-            gT[i:i + baw] = Tfoe[:, :6]
-            ge[i:i + baw] = Tfoe[:, 6:8]
+            #gT[i:i + baw] = Tfoe[:, :6]
+            #ge[i:i + baw] = Tfoe[:, 6:8]
             #gs[i:i + baw] = Tfoe[:, 8:]
+            gT[0] = Tfoe[0, :6]
+            ge[0] = Tfoe[0, 6:8]
 
             print('ep', foe)
             #print(T_)

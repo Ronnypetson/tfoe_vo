@@ -109,7 +109,6 @@ class OptSingle:
             #input()
 
             #if yij < 1e-4:
-            # y = y + 1e-1*yij + yt_ij # (0,1), (1,0)
             y = y + 1e-1*yij + yt_ij
         #input()
 

@@ -157,7 +157,7 @@ def ba_graph(i, j):
         for end in range(start+1, j+1):
             if start != end:
                 g.append((start, end))
-                #g.append((end, start))
+                g.append((end, start))
     #for start in range(i, j+1):
     #    for end in range(i, j+1):
     #        if start != end:

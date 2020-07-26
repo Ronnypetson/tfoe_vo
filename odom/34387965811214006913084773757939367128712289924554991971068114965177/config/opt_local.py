@@ -100,16 +100,17 @@ class OptSingle:
                                         Tij, foeij, c)
             yij = F.smooth_l1_loss(c_ @ torch.from_numpy(self.x_[ij]), x_rep)
 
-            #T0ij = torch.from_numpy(self.T0ij[ij])
+            T0ij = torch.from_numpy(self.T0ij[ij])
+            yt_ij = F.smooth_l1_loss(Tij, T0ij)
             #print(T)
             #print(Tij)
             #print(T0ij)
-            #yt_ij = F.smooth_l1_loss(Tij, T0ij)
             #print(yt_ij)
             #input()
 
             #if yij < 1e-4:
-            y = y + yij
+            # y = y + 1e-1*yij + yt_ij # (0,1), (1,0)
+            y = y + 1e-1*yij + yt_ij
         #input()
 
         y = y / len(g)

@@ -109,8 +109,7 @@ class OptSingle:
             #input()
 
             #if yij < 1e-4:
-            # y = y + 1e-1*yij + yt_ij # (0,1), (1,0)
-            y = y + 1e-1*yij + yt_ij
+            y = y + 0.0*yij + yt_ij
         #input()
 
         y = y / len(g)
@@ -157,11 +156,11 @@ class OptSingle:
                        Tfoe0, method='L-BFGS-B',
                        jac=True,
                        bounds=bounds,
-                       #tol=1e-14,
+                       tol=1e-14,
                        options={'disp': False,
-                                'maxiter': 13,
-                                #'gtol': 1e-12,
-                                #'ftol': 1e-12,
+                                'maxiter': 1e3,
+                                'gtol': 1e-12,
+                                'ftol': 1e-12,
                                 'maxcor': len(Tfoe0)})
 
         #res = minimize(self.objective,

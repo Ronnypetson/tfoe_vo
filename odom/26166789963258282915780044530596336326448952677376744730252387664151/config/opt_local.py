@@ -12,12 +12,13 @@ from utils import compose_local
 
 
 class OptSingle:
-    def __init__(self, x, x_, c, g):
+    def __init__(self, x, x_, T0ij, c, g):
         ''' x and x_ are (i, j) -> 3xN
         '''
         self.g = g
         self.x = x # (i, j) -> x
         self.x_ = x_  # (i, j) -> x_
+        self.T0ij = T0ij
         #self.f = {}  # (i, j) -> f
         #for k in x:
         #    self.f[k] = x_[k] - x[k]
@@ -89,7 +90,8 @@ class OptSingle:
         for ij in g:
             #print(ij)
             Tij, foeij = compose_local(ij[0], ij[1],
-                                       T.clone(), foe.clone(), scale.clone(), c)
+                                       T.clone(), foe.clone(),
+                                       scale.clone(), c, base=self.base)
             #print(Tij.detach().numpy())
             #print(torch.inverse(Tij).detach().numpy())
             #print(foeij.detach().numpy())
@@ -97,12 +99,16 @@ class OptSingle:
                                         torch.from_numpy(self.x_[ij]),
                                         Tij, foeij, c)
             yij = F.smooth_l1_loss(c_ @ torch.from_numpy(self.x_[ij]), x_rep)
-            #if ij[1] - ij[0] == 2:
-            #    #print(foeij.detach().numpy())
-            #    #print(yij)
-            #    #print(ij)
-            #    #print(Tij.detach().numpy())
-            #    y = y + yij # + 1e-6*reg
+
+            #T0ij = torch.from_numpy(self.T0ij[ij])
+            #print(T)
+            #print(Tij)
+            #print(T0ij)
+            #yt_ij = F.smooth_l1_loss(Tij, T0ij)
+            #print(yt_ij)
+            #input()
+
+            #if yij < 1e-4:
             y = y + yij
         #input()
 
@@ -118,7 +124,7 @@ class OptSingle:
             foe0 is n,2
             scale is n,1
         '''
-        #s = np.min([ij[0] for ij in self.g])
+        self.base = np.min([ij[0] for ij in self.g])
         self.min_obj = np.inf
         Tfoe0 = np.concatenate([T0, foe0, scale], axis=-1) # n,8
         Tfoe0 = Tfoe0.reshape((-1,))
@@ -141,7 +147,10 @@ class OptSingle:
             #    bounds.append((None, None))
         else:
             for i, par in enumerate(Tfoe0):
-                bounds.append((None, None))
+                if i == 8:
+                    bounds.append((par - 1e-10, par + 1e-10))
+                else:
+                    bounds.append((None, None))
 
         res = minimize(self.objective,
                        Tfoe0, method='L-BFGS-B',
@@ -149,10 +158,10 @@ class OptSingle:
                        bounds=bounds,
                        #tol=1e-14,
                        options={'disp': False,
-                                'maxiter': 1e3,
-                                #'gtol': 1e-6,
-                                #'ftol': 1e-6,
-                                'maxcor': 40})
+                                'maxiter': 13,
+                                #'gtol': 1e-12,
+                                #'ftol': 1e-12,
+                                'maxcor': len(Tfoe0)})
 
         #res = minimize(self.objective,
         #               Tfoe0, method='BFGS',

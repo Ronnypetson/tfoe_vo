@@ -171,11 +171,11 @@ def main():
             x_ = np.concatenate([x_, z], axis=0)
 
             opt = OptSingle(x, x_, c, kp.E)
-            #T0 = SE3.from_matrix(T, normalize=True)
-            #T0 = T0.inv().log()
-            T0 = np.zeros(6)
-            #foe0 = kp.ep0 / 1e3
-            foe0 = np.array([607.1928, 185.2157]) / 1e3
+            T0 = SE3.from_matrix(T, normalize=True)
+            T0 = T0.inv().log()
+            #T0 = np.zeros(6)
+            foe0 = kp.ep0 / 1e3
+            #foe0 = np.array([607.1928, 185.2157]) / 1e3
             if kp.moving:
                 Tfoe = opt.optimize(T0, foe0, freeze=False)
             else:

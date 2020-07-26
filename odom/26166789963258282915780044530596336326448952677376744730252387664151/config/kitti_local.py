@@ -91,6 +91,7 @@ class KpT0_BA:
                 self._kpts[i] = kp0
                 self._flow[(i, i_)] = p1 - kp0
                 self._T0[i] = T0
+                self._Tij0[(i, i_)] = T0
                 self._ep0[i] = ep0
                 self._Tgt[i] = Tgt
                 if i > 0:
@@ -145,7 +146,7 @@ class KpT0_BA:
             self._flow[(i, j)] = kp1 - kp0
             self._vids[(i, j)] = vids
             self._avids[(i, j)] = avids
-            #self._Tij0[(i, j)] = T0
+            self._Tij0[(i, j)] = T0
         return kp0, self._flow[(i, j)]
 
 
@@ -176,7 +177,7 @@ def main():
     ge = np.zeros((kp.seq_len+1, 2))
     gs = np.ones((kp.seq_len+1, 1))
     ge[0] = np.array([607.1928, 185.2157]) / 1e3
-    baw = 3
+    baw = 5
 
     try:
         for i in range(kp.seq_len):
@@ -184,6 +185,7 @@ def main():
             kp.init_frame(i)
             Tgt = kp._Tgt[i]
             T = kp._T0[i]
+
             g = ba_graph(i, i + (baw - 1))
             p = {}
             f = {}
@@ -199,23 +201,37 @@ def main():
             x = {}
             x_ = {}
             for ij in g:
-                x[ij] = p[ij][kp._vids[ij], 0, :].transpose(1, 0) #
+                #sel_ids = np.random.choice(kp._vids[ij], 8)
+                x[ij] = p[ij][kp._vids[ij], 0, :].transpose(1, 0) # kp._vids[ij]
                 z = np.ones((1, x[ij].shape[-1]))
                 x[ij] = np.concatenate([x[ij], z], axis=0)
 
-                x_[ij] = (p[ij] + f[ij])[kp._vids[ij], 0, :].transpose(1, 0) #
+                x_[ij] = (p[ij] + f[ij])[kp._vids[ij], 0, :].transpose(1, 0) # kp._vids[ij]
                 x_[ij] = np.concatenate([x_[ij], z], axis=0)
 
-            opt = OptSingle(x, x_, c, g) # kp.E
-            T0 = SE3.from_matrix(T, normalize=True)
+            opt = OptSingle(x, x_, kp._Tij0, c, g) # kp.E
+            #T0 = SE3.from_matrix(T, normalize=True)
             #T0 = T0.inv().log()
-            T0 = T0.log()
+            #T0 = T0.log()
+            scale_gt = []
             for j in range(baw):
-                #gT[i + j + 1] = SE3.from_matrix(kp._gTgt[i + j], normalize=True).log()
+                T0 = SE3.from_matrix(kp._T0[i + j], normalize=True).log()
+                #T0 = SE3.from_matrix(kp._Tgt[i + j], normalize=True).log()
+                #T0 = np.zeros(6)
+
+                norm_gt = np.linalg.norm(kp._Tgt[i + j][:3, 3])
+                scale_gt.append(norm_gt / normT)
+
+                #gs[i + j] = (norm_gt / normT)
+                #T0[:3] /= norm_gt
                 gT[i + j] = T0.copy()
 
             for j in range(baw):
                 ge[i + j] = kp._ep0[i + j] / 1e3
+                #ep2 = kp._Tgt[i + j][:3, 3:]
+                #ep2 = ep2 / (ep2[-1] + 1e-8)
+                #ep2 = kp.camera_matrix @ ep2
+                #ge[i + j] = ep2[:2, 0] / 1e3
 
             Tfoe = opt.optimize(gT[i:i + baw],
                                 ge[i:i + baw],
@@ -226,22 +242,26 @@ def main():
             Tfoe = Tfoe.reshape(-1, 9)
             T_ = Tfoe[0, :6]
             foe = Tfoe[0, 6:8]
-            sc = Tfoe[-1, 8:]
+            sc = Tfoe[:, 8]
 
             #gT[i] = T_.copy()
             gT[i:i + baw] = Tfoe[:, :6]
             ge[i:i + baw] = Tfoe[:, 6:8]
-            gs[i:i + baw] = Tfoe[:, 8:]
+            #gs[i:i + baw] = Tfoe[:, 8:]
 
-            print('foe', foe)
-            print('scale', sc)
+            print('ep', foe)
+            #print(T_)
+            #input()
+            print('scale\t', sc[:-1])
+            print('scalegt\t', scale_gt[:-1])
+
             T_ = SE3.exp(T_).as_matrix() # .inv()
             poses_.append(norm_t(T_.copy(), normT))
             #poses_.append(T_.copy())
             pose0 = pose0 @ T_
             W_poses.append(pose0)
 
-            if i % 10 == 9:
+            if i % 4 == 3:
                 P = [poses_gt, poses, poses_]
                 #P = [poses_gt, poses, W_poses]
                 plot_trajs(P, f'{run_dir}/{seq_id}.svg', glb=False)

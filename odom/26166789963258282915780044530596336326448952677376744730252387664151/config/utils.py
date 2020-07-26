@@ -157,13 +157,15 @@ def ba_graph(i, j):
         for end in range(start+1, j+1):
             if start != end:
                 g.append((start, end))
+                #g.append((end, start))
     #for start in range(i, j+1):
     #    for end in range(i, j+1):
     #        if start != end:
     #            g.append((start, end))
     #for start in range(i, j):
     #    g.append((start, start + 1))
-    #    g.append((start + 1, start))
+    #for start in range(i+1, j):
+    #    g.append((i, start))
     #g.append((i, i + 3))
     return g
 
@@ -205,7 +207,7 @@ def compose(i, j, T, ep, c):
     return Tji, epji, reg
 
 
-def compose_local(i, j, T, ep, scale, c):
+def compose_local(i, j, T, ep, scale, c, base=0):
     '''
     T is n,4,4
     ep is n,2,1
@@ -213,17 +215,20 @@ def compose_local(i, j, T, ep, scale, c):
     assert i != j, f'Check indexes {i} {j}'
     i_ = min(i, j)
     j_ = max(i, j)
-    j_ -= i_
-    i_ = 0
+    j_ -= base
+    i_ -= base
+
+    #print('i j', i_, j_)
 
     z = torch.ones(ep.size(0), 1, 1).double()
     ep = 1e3 * ep
     ep = torch.cat([ep, z], dim=1) # n,3,1
+    #scale = 1e1 * scale
 
     c_ = torch.inverse(c)
     #Tji = T[j] @ torch.inverse(T[i])
     Tji = torch.eye(4).double()
-    for k in range(j_):
+    for k in range(i_, j_):
         Tji = T[k] @ Tji
 
     Tji[:3, 3:] = Tji[:3, 3:].clone()\

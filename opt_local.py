@@ -141,7 +141,10 @@ class OptSingle:
             #    bounds.append((None, None))
         else:
             for i, par in enumerate(Tfoe0):
-                bounds.append((None, None))
+                if i == 8:
+                    bounds.append((par - 1e-10, par + 1e-10))
+                else:
+                    bounds.append((None, None))
 
         res = minimize(self.objective,
                        Tfoe0, method='L-BFGS-B',

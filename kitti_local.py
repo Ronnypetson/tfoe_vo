@@ -176,7 +176,7 @@ def main():
     ge = np.zeros((kp.seq_len+1, 2))
     gs = np.ones((kp.seq_len+1, 1))
     ge[0] = np.array([607.1928, 185.2157]) / 1e3
-    baw = 3
+    baw = 5
 
     try:
         for i in range(kp.seq_len):
@@ -184,6 +184,7 @@ def main():
             kp.init_frame(i)
             Tgt = kp._Tgt[i]
             T = kp._T0[i]
+
             g = ba_graph(i, i + (baw - 1))
             p = {}
             f = {}
@@ -207,12 +208,14 @@ def main():
                 x_[ij] = np.concatenate([x_[ij], z], axis=0)
 
             opt = OptSingle(x, x_, c, g) # kp.E
-            T0 = SE3.from_matrix(T, normalize=True)
+            #T0 = SE3.from_matrix(T, normalize=True)
             #T0 = T0.inv().log()
-            T0 = T0.log()
+            #T0 = T0.log()
             for j in range(baw):
-                #gT[i + j + 1] = SE3.from_matrix(kp._gTgt[i + j], normalize=True).log()
+                T0 = SE3.from_matrix(kp._T0[i + j], normalize=True).log()
                 gT[i + j] = T0.copy()
+                #norm_gt = np.linalg.norm(kp._Tgt[i + j][:3, 3])
+                #gs[i + j] = norm_gt / normT
 
             for j in range(baw):
                 ge[i + j] = kp._ep0[i + j] / 1e3
@@ -226,15 +229,15 @@ def main():
             Tfoe = Tfoe.reshape(-1, 9)
             T_ = Tfoe[0, :6]
             foe = Tfoe[0, 6:8]
-            sc = Tfoe[0, 8:]
+            sc = Tfoe[:, 8]
 
             #gT[i] = T_.copy()
             gT[i:i + baw] = Tfoe[:, :6]
             ge[i:i + baw] = Tfoe[:, 6:8]
-            gs[i:i + baw] = Tfoe[:, 8:]
+            #gs[i:i + baw] = Tfoe[:, 8:]
 
             print('ep', foe)
-            #print('scale', sc)
+            print('scale', sc)
             T_ = SE3.exp(T_).as_matrix() # .inv()
             poses_.append(norm_t(T_.copy(), normT))
             #poses_.append(T_.copy())

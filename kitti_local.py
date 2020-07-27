@@ -177,7 +177,7 @@ def main():
     ge = np.zeros((kp.seq_len+1, 2))
     gs = np.ones((kp.seq_len+1, 1))
     ge[0] = np.array([607.1928, 185.2157]) / 1e3
-    baw = 2
+    baw = 4
 
     try:
         for i in range(kp.seq_len):

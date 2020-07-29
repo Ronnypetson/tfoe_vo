@@ -207,6 +207,10 @@ def main():
                 f[ij] = kp._flow[ij]
 
             normT0 = np.linalg.norm(kp._Tgt[i][:3, 3])
+            for j in range(baw - 1):
+                normT = np.linalg.norm(kp._Tgt[i + j][:3, 3])
+                poses.append(norm_t(kp._T0[i + j].copy(), normT))
+                poses_gt.append(kp._Tgt[i + j])
 
             x = {}
             x_ = {}
@@ -239,7 +243,7 @@ def main():
                 id2 = j + 1
                 n12 = np.linalg.norm(f[(id1, id2)], axis=-1)
                 n01 = np.linalg.norm(f[(id0, id1)], axis=-1)
-                rs = (np.median(n12) / np.median(n01))**(1.0/3.0)
+                rs = (np.median(n12) / np.median(n01))**(1.0/2.0)
                 rs0 = rs * rs0
                 gs[j] = rs0
 
@@ -264,12 +268,6 @@ def main():
             print('ep', foe)
             print('scale\t', sc[:-1])
             print('scalegt\t', scale_gt[:-1])
-
-            for j in range(baw - 1):
-                #normT = np.linalg.norm(kp._Tgt[i + j][:3, 3])
-                normT = gs[i + j]
-                poses.append(norm_t(kp._T0[i + j].copy(), normT))
-                poses_gt.append(kp._Tgt[i + j])
 
             for j in range(baw - 1):
                 #T_ = SE3.exp(T_).as_matrix() # .inv()

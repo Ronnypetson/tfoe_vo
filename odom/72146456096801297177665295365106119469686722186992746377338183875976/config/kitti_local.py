@@ -239,7 +239,7 @@ def main():
                 id2 = j + 1
                 n12 = np.linalg.norm(f[(id1, id2)], axis=-1)
                 n01 = np.linalg.norm(f[(id0, id1)], axis=-1)
-                rs = (np.median(n12) / np.median(n01))**(1.0/3.0)
+                rs = (np.median(n12) / np.median(n01))**(1.0/2.0)
                 rs0 = rs * rs0
                 gs[j] = rs0
 

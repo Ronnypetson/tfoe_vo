@@ -207,6 +207,10 @@ def main():
                 f[ij] = kp._flow[ij]
 
             normT0 = np.linalg.norm(kp._Tgt[i][:3, 3])
+            for j in range(baw - 1):
+                normT = np.linalg.norm(kp._Tgt[i + j][:3, 3])
+                poses.append(norm_t(kp._T0[i + j].copy(), normT))
+                poses_gt.append(kp._Tgt[i + j])
 
             x = {}
             x_ = {}
@@ -239,9 +243,12 @@ def main():
                 id2 = j + 1
                 n12 = np.linalg.norm(f[(id1, id2)], axis=-1)
                 n01 = np.linalg.norm(f[(id0, id1)], axis=-1)
-                rs = (np.median(n12) / np.median(n01))**(1.0/3.0)
+                rs = (np.median(n12) / np.median(n01))**(1.0/2.5)
                 rs0 = rs * rs0
                 gs[j] = rs0
+            print(scale_gt)
+            print(gs[i: i + baw].T)
+            input()
 
             Tfoe = opt.optimize(gT[i:i + baw],
                                 ge[i:i + baw],
@@ -266,16 +273,9 @@ def main():
             print('scalegt\t', scale_gt[:-1])
 
             for j in range(baw - 1):
-                #normT = np.linalg.norm(kp._Tgt[i + j][:3, 3])
-                normT = gs[i + j]
-                poses.append(norm_t(kp._T0[i + j].copy(), normT))
-                poses_gt.append(kp._Tgt[i + j])
-
-            for j in range(baw - 1):
                 #T_ = SE3.exp(T_).as_matrix() # .inv()
                 T_ = SE3.exp(Tfoe[j, :6]).as_matrix()
-                #normT = np.linalg.norm(kp._Tgt[i + j][:3, 3])
-                normT = gs[i + j]
+                normT = np.linalg.norm(kp._Tgt[i + j][:3, 3])
                 poses_.append(norm_t(T_.copy(), normT))
                 #poses_.append(T_.copy())
                 #pose0 = pose0 @ T_

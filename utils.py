@@ -166,7 +166,7 @@ def ba_graph(i, j):
     for start in range(i, j):
         g.append((start, start + 1))
         g.append((start + 1, start))
-        if start < j - 2:
+        if start < j - 1:
             g.append((start, start + 2))
             g.append((start + 2, start))
         #if start < j - 3:
@@ -248,7 +248,7 @@ def compose_local(i, j, T, ep, scale, c, base=0):
     T_jt = torch.eye(4).double()
     ac = torch.zeros(3, 1).double()
     for k in range(j_, i_, -1):
-        ac += scale[k - 1] * (c @ T_jt[:3, :3] @ c_ @ ep[k - 1])
+        ac += (c @ T_jt[:3, :3] @ c_ @ ep[k - 1]) * scale[k - 1]
         T_jt = T_jt.clone() @ T[k - 1]
     epji = ac.clone()
 

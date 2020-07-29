@@ -2,8 +2,10 @@ import numpy as np
 import cv2
 from liegroups import SE3
 import torch
+from matplotlib import pyplot as plt
 
-def reproj(p,T,d,c):
+
+def reproj(p, T, d, c):
     ''' Computes rerpojection of points p given pose T and camera intrinsics c.
         T is in SE3 form.
         d is 1xN -- point depths.
@@ -18,7 +20,8 @@ def reproj(p,T,d,c):
     p_ = c @ p_
     return p_
 
-def reproj_tc(p,T,d,c):
+
+def reproj_tc(p, T, d, c):
     ''' Computes rerpojection of points p given pose T and camera intrinsics c.
         T is in SE3 form.
         d is 1xN -- point depths.
@@ -32,6 +35,53 @@ def reproj_tc(p,T,d,c):
     p_ = x_ / x_[-1:]
     p_ = c @ p_
     return p_
+
+
+def triangulate(p, p_, T, c, e):
+    '''
+    p is 3xN in pixel coordinates
+    T is 4x4
+    c is 3x3
+    e is 2x1 in pixel coordinates
+    '''
+    c_ = np.linalg.inv(c)
+    z = np.ones((1, 1))
+    e = e * 1e3
+    e = np.expand_dims(e, axis=-1)
+    e = np.concatenate([e, z], axis=0)
+    e = c_ @ e
+
+    d = depth_np2(p, (p_ - p), T, e)
+    x = p * d
+    return x
+
+
+def rel_scale(T01, T12, T02):
+    '''
+    T* is 4x4 (SE3 form)
+    '''
+    ival = np.arange(0.9, 1.1, 1e-2)
+    #ival2 = np.arange(1.8, 2.4, 1e-2)
+
+    min_e = np.inf
+    min_s = 1.0
+    R12t01 = T12[:3, :3] @ T01[:3, 3:]
+    errs = []
+    for s in ival:
+        t_ = R12t01 + s * T12[:3, 3:]
+        t_ = t_ / np.linalg.norm(t_)
+        #err = np.linalg.norm(T02[:3, 3:] - t_)
+        err = 1.0 - np.abs(T02[:3, 3:].T @ t_)[0, 0]
+        errs.append(err)
+        if err < min_e:
+            min_e = err
+            min_s = s
+
+    plt.plot(ival, errs, '-')
+    plt.show()
+
+    return min_s
+
 
 def reproj_tc_foe(p, p_, T, foe, c):
     ''' Computes rerpojection of points p given pose T and camera intrinsics c.
@@ -163,6 +213,20 @@ def depth_tc2(p, f, T, foe):
     num = num.squeeze(-1)
     num = torch.norm(num, dim=-1) # N
     d = num / den # N
+    return d
+
+
+def depth_np2(p, f, T, foe):
+    ''' p is 3xN
+        f is 3xN (flow)
+        foe is 3x1
+    '''
+    p = torch.from_numpy(p)
+    f = torch.from_numpy(f)
+    T = torch.from_numpy(T)
+    foe = torch.from_numpy(foe)
+    d = depth_tc2(p, f, T, foe)
+    d = d.detach().numpy()
     return d
 
 

@@ -11,6 +11,7 @@ import pykitti
 from versions import files_to_hash, save_state
 from utils import norm_t, plot_trajs, ba_graph
 from utils import save_poses, pt_cloud, plot_pt_cloud
+from reproj import triangulate, rel_scale
 
 
 class KpT0_BA:
@@ -67,6 +68,7 @@ class KpT0_BA:
                 T0 = np.eye(4)
                 T0[:3, :3] = R
                 T0[:3, 3:] = t
+                #T0[:3, 3:] = t / (t[-1] + 1e-10)
 
                 if len(mask) > 3:
                     vids_ = [j for j in range(len(mask)) if mask[j] == 1.0]
@@ -136,6 +138,7 @@ class KpT0_BA:
             T0 = np.eye(4)
             T0[:3, :3] = R
             T0[:3, 3:] = t
+            #T0[:3, 3:] = t / (t[-1] + 1e-10)
 
             if len(mask) > 3:
                 vids_ = [k for k in range(len(mask)) if mask[k] == 1.0]
@@ -187,11 +190,10 @@ def main():
     ge = np.zeros((kp.seq_len+1, 2))
     gs = np.ones((kp.seq_len+1, 1))
     ge[0] = np.array([607.1928, 185.2157]) / 1e3
-    baw = 6
+    baw = 3
 
     try:
         for i in range(0, kp.seq_len, baw - 1):
-            #i_ = min(i + 1, kp.seq_len - 1)
             kp.init_frame(i)
             Tgt = kp._Tgt[i]
             T = kp._T0[i]
@@ -204,8 +206,8 @@ def main():
                 p[ij] = kp._kpts[ij[0]]
                 f[ij] = kp._flow[ij]
 
+            normT0 = np.linalg.norm(kp._Tgt[i][:3, 3])
             for j in range(baw - 1):
-                #normT = np.linalg.norm(Tgt[:3, 3])
                 normT = np.linalg.norm(kp._Tgt[i + j][:3, 3])
                 poses.append(norm_t(kp._T0[i + j].copy(), normT))
                 poses_gt.append(kp._Tgt[i + j])
@@ -213,7 +215,6 @@ def main():
             x = {}
             x_ = {}
             for ij in g:
-                #sel_ids = np.random.choice(kp._vids[ij], 8)
                 x[ij] = p[ij][kp._vids[ij], 0, :].transpose(1, 0) # kp._vids[ij]
                 z = np.ones((1, x[ij].shape[-1]))
                 x[ij] = np.concatenate([x[ij], z], axis=0)
@@ -222,28 +223,33 @@ def main():
                 x_[ij] = np.concatenate([x_[ij], z], axis=0)
 
             opt = OptSingle(x, x_, kp._Tij0, c, g) # kp.E
-            #T0 = SE3.from_matrix(T, normalize=True)
-            #T0 = T0.inv().log()
-            #T0 = T0.log()
             scale_gt = []
+
             for j in range(baw):
                 T0 = SE3.from_matrix(kp._T0[i + j], normalize=True).log()
-                #T0 = SE3.from_matrix(kp._Tgt[i + j], normalize=True).log()
-                #T0 = np.zeros(6)
-
                 norm_gt = np.linalg.norm(kp._Tgt[i + j][:3, 3])
-                scale_gt.append(norm_gt / normT)
-
-                #gs[i + j] = (norm_gt / normT)
-                #T0[:3] /= norm_gt
+                sc = norm_gt / normT0
+                scale_gt.append(sc)
                 gT[i + j] = T0.copy()
 
             for j in range(baw):
                 ge[i + j] = kp._ep0[i + j] / 1e3
-                #ep2 = kp._Tgt[i + j][:3, 3:]
-                #ep2 = ep2 / (ep2[-1] + 1e-8)
-                #ep2 = kp.camera_matrix @ ep2
-                #ge[i + j] = ep2[:2, 0] / 1e3
+
+            print(scale_gt)
+            for j in range(i + 1, i + baw - 1, 1):
+                id0 = j - 1
+                id1 = j
+                id2 = j + 1
+                #rs = rel_scale(kp._T0[id0], kp._T0[id1], kp._Tij0[(id0, id2)])
+                n12 = np.linalg.norm(f[(id1, id2)], axis=-1)
+                n01 = np.linalg.norm(f[(id0, id1)], axis=-1)
+                #print(n12.shape, n01.shape)
+                #n12 = (n12 - np.mean(n12)) / np.std(n12)
+                #n01 = (n01 - np.mean(n01)) / np.std(n01)
+                #print(n12.shape, n01.shape)
+                rs = (np.median(n12) / np.median(n01))**(1.0/2.5)
+                print(rs)
+                input()
 
             Tfoe = opt.optimize(gT[i:i + baw],
                                 ge[i:i + baw],

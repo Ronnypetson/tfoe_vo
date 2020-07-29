@@ -102,15 +102,17 @@ class OptSingle:
 
             T0ij = torch.from_numpy(self.T0ij[ij])
             yt_ij = F.smooth_l1_loss(Tij[:3, :3], T0ij[:3, :3])
+            #yt_ij_t = F.smooth_l1_loss(Tij[:3, 3], T0ij[:3, 3]) ###
             #print(T)
             #print(Tij)
             #print(T0ij)
+            #print(yt_ij_t)
             #print(yt_ij)
             #input()
 
             #if yij < 1e-4:
             # y = y + 1e-1*yij + yt_ij # (0,1), (1,0)
-            y = y + yij + 1e-2*yt_ij
+            y = y + yij + 1e-2*yt_ij #1e-1*yt_ij_t
         #input()
 
         y = y / len(g)
@@ -149,6 +151,8 @@ class OptSingle:
         else:
             for i, par in enumerate(Tfoe0):
                 if i == 8:
+                    bounds.append((par - 1e-10, par + 1e-10))
+                elif i % 9 < 8 and False:
                     bounds.append((par - 1e-10, par + 1e-10))
                 else:
                     bounds.append((None, None))

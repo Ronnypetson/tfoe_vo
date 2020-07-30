@@ -262,9 +262,8 @@ def compose_local(i, j, T, ep, scale, c, base=0):
         Tji = torch.inverse(Tji)
         epji = c @ Tji[:3, :3] @ c_ @ epji
 
-    t = Tji[:3, 3:]
-    ep_ = (c @ (t / (t[-1] + 1e-10))) / 1e3
-    ep_ = ep_[:2]
+    #t = Tji[:3, 3:]
+    #ep_ = (c @ (t / (t[-1] + 1e-10))) / 1e3
     #print(ep_.detach().numpy())
 
     epji = epji / (epji[-1] + 1e-10)
@@ -272,4 +271,4 @@ def compose_local(i, j, T, ep, scale, c, base=0):
     epji = epji / 1e3
     epji = epji[:2]
     #print(epji)
-    return Tji, epji, ep_
+    return Tji, epji

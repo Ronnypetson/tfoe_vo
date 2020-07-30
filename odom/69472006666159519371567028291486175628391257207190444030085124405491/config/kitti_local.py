@@ -332,7 +332,7 @@ def main():
             #ge[0] = Tfoe[0, 6:8]
 
             print('ep', foe)
-            print('scale\t', sc[:-1])
+            #print('scale\t', sc[:-1])
             print(1.0, kp._rs0[i + 1] / kp._rs0[i])
             print('scalegt\t', scale_gt[:-1])
 

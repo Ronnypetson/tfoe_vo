@@ -89,9 +89,9 @@ class OptSingle:
         y = 0.0
         #resid = []
         for ij in g:
-            Tij, foeij, ep_ = compose_local(ij[0], ij[1],
-                                            T.clone(), foe.clone(),
-                                            scale.clone(), c, base=self.base)
+            Tij, foeij = compose_local(ij[0], ij[1],
+                                       T.clone(), foe.clone(),
+                                       scale.clone(), c, base=self.base)
             #print(Tij.detach().numpy())
             #print(torch.inverse(Tij).detach().numpy())
             #print(foeij.detach().numpy())
@@ -104,8 +104,7 @@ class OptSingle:
             T0ij = torch.from_numpy(self.T0ij[ij])
             yt_ij = F.smooth_l1_loss(Tij[:3, :3], T0ij[:3, :3])
             #yt_ij_t = F.smooth_l1_loss(Tij[:2, 3], T0ij[:2, 3] * Tij[2, 3]) ### * Tij[2, 3]
-            #yt_ij_t = torch.sum(torch.abs(Tij[:2, 3] - T0ij[:2, 3]))
-            y_ep = F.smooth_l1_loss(foeij, ep_)
+            yt_ij_t = torch.sum(torch.abs(Tij[:2, 3] - T0ij[:2, 3]))
             #print(T[:, 2, 3])
             #T_norm = torch.mean(1.0 - torch.abs(T[:, 2, 3]))
             #print(T)
@@ -119,7 +118,7 @@ class OptSingle:
 
             #if yij < 1e-4:
             # y = y + 1e-1*yij + yt_ij # (0,1), (1,0)
-            y = y + yij + 1e-2*yt_ij + 1e-2*y_ep # + 1e-4*yt_ij #
+            y = y + yij + 1e-2*yt_ij + 1e-4*yt_ij #
         #input()
         #resid = torch.cat(resid, dim=0)
 

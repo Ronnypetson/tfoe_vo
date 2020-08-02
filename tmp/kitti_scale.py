@@ -6,12 +6,12 @@ import cv2
 import torch
 from liegroups import SE3
 #from matplotlib import pyplot as plt
-from opt_local import OptSingle
+from tmp.opt_scale import OptSingle
 import pykitti
 from versions import files_to_hash, save_state
 from utils import norm_t, plot_trajs, ba_graph
 from utils import save_poses, pt_cloud, plot_pt_cloud
-from reproj import triangulate, rel_scale, rel_scale_
+from reproj import rel_scale_
 from reproj import triangulate_
 
 
@@ -220,10 +220,10 @@ def main():
         os.makedirs(exp_dir)
 
     run_date = time.asctime().replace(' ', '_')
-    state_fns = ['kitti_local.py', 'opt_local.py', 'utils.py', 'reproj.py']
+    state_fns = ['kitti_scale.py', 'opt_scale.py', 'utils.py', 'reproj.py']
     run_hash = files_to_hash(state_fns)
     run_dir = f'odom/{run_hash}/{run_date}/'
-    save_state('odom/', state_fns)
+    save_state('../odom/', state_fns)
 
     if not os.path.isdir(run_dir):
         os.makedirs(run_dir)
@@ -246,9 +246,9 @@ def main():
     cloud_all = np.zeros((3, 1))
     gT = np.zeros((kp.seq_len+1, 6))
     ge = np.zeros((kp.seq_len+1, 2))
-    gs = np.ones((kp.seq_len+1, 1))
+    gs = np.zeros((kp.seq_len+1, 1))
     ge[0] = np.array([607.1928, 185.2157]) / 1e3
-    baw = 4
+    baw = 3
     kp.init_frame(0)
     rs0 = np.linalg.norm(kp._Tgt[0][:3, 3])
 
@@ -294,13 +294,14 @@ def main():
             for j in range(baw):
                 ge[i + j] = kp._ep0[i + j].copy() / 1e3
 
-            gs[i] = 1.0
+            #gs[i] = 1.0
             rs_ = 1.0
             rec_sc = [1.0]
             for j in range(i + 1, i + baw - 1, 1):
-                gs[j] = kp._rs0[j]
-                rs_ *= gs[j]
                 continue
+                #gs[j] = kp._rs0[j]
+                #rs_ *= gs[j]
+                #continue
                 id0 = j - 1
                 id1 = j
                 id2 = j + 1
@@ -339,8 +340,8 @@ def main():
             #ge[0] = Tfoe[0, 6:8]
 
             print('ep', foe)
-            print('scale\t', sc[:-1])
-            print(1.0, kp._rs0[i + 1] / kp._rs0[i])
+            print('scale\t', 1.0 / np.exp(sc[:-1]))
+            #print(1.0, kp._rs0[i + 1] / kp._rs0[i])
             print('scalegt\t', scale_gt[:-1])
 
             for j in range(baw - 1):

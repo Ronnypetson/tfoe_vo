@@ -42,3 +42,10 @@
 #     / np.mean(np.linalg.norm(X01[-1], axis=0))
 # print(rs)
 # input()
+
+# n12 = np.linalg.norm(f[(id1, id2)][kp._vids[(id1, id2)], 0, :], axis=-1)
+# n01 = np.linalg.norm(f[(id0, id1)][kp._vids[(id0, id1)], 0, :], axis=-1)
+# rs = (np.median(n12) / np.median(n01))**(1.0/1.0)
+# print(rs)
+# rs_ = rs * rs_
+# gs[j] = rs_

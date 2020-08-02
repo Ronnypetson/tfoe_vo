@@ -2,13 +2,13 @@ import numpy as np
 from scipy.optimize import minimize, least_squares
 from reproj import gen_pts
 from reproj import reproj_tc_foe
-from reproj import reproj_tc_foe_local
+from reproj import reproj_tc_foe_slocal
 from liegroups import SE3
 import torch
 import torch.nn.functional as F
 from liegroups.torch import SE3 as SE3tc
 from hessian import jacobian, hessian
-from utils import compose_local
+from utils import compose_slocal
 
 
 class OptSingle:
@@ -73,15 +73,15 @@ class OptSingle:
         Tfoe = Tfoe.requires_grad_(True)
         Tfoe.retain_grad()
         Tfoe_ = Tfoe.clone()
-        Tfoe_ = Tfoe_.reshape(-1, 9)
+        Tfoe_ = Tfoe_.reshape(-1, 10)
 
         g = self.g # bundle graph
         c = self.c
         c_ = self.c_
 
         T = Tfoe_[:, :6]
-        foe = Tfoe_[:, 6:8]
-        scale = Tfoe_[:, 8:]
+        foe = Tfoe_[:, 6:9]
+        scale = Tfoe_[:, 9:]
         foe = foe.unsqueeze(-1)
         T = SE3tc.exp(T.clone())
         T = T.as_matrix()
@@ -89,15 +89,15 @@ class OptSingle:
         y = 0.0
         #resid = []
         for ij in g:
-            Tij, foeij, ep_ = compose_local(ij[0], ij[1],
-                                            T.clone(), foe.clone(),
-                                            scale.clone(), c, base=self.base)
+            Tij, foeij, ep_ = compose_slocal(ij[0], ij[1],
+                                             T.clone(), foe.clone(),
+                                             scale.clone(), c, base=self.base)
             #print(Tij.detach().numpy())
             #print(torch.inverse(Tij).detach().numpy())
             #print(foeij.detach().numpy())
-            x_rep = reproj_tc_foe_local(torch.from_numpy(self.x[ij]),
-                                        torch.from_numpy(self.x_[ij]),
-                                        Tij, foeij, c)
+            x_rep = reproj_tc_foe_slocal(torch.from_numpy(self.x[ij]),
+                                         torch.from_numpy(self.x_[ij]),
+                                         Tij, foeij, c)
             yij = F.smooth_l1_loss(c_ @ torch.from_numpy(self.x_[ij]), x_rep)
 
             T0ij = torch.from_numpy(self.T0ij[ij])
@@ -111,10 +111,9 @@ class OptSingle:
 
             #resid.append(torch.norm(c_ @ torch.from_numpy(self.x_[ij]) - x_rep, dim=0)**2)
 
-            yt_ij = F.smooth_l1_loss(Tij[:3, :3], T0ij[:3, :3])
             #yt_ij_t = F.smooth_l1_loss(Tij[:2, 3], T0ij[:2, 3] * Tij[2, 3]) ### * Tij[2, 3]
             #yt_ij_t = torch.sum(torch.abs(Tij[:2, 3] - T0ij[:2, 3]))
-            y_ep = F.smooth_l1_loss(foeij, ep_)
+
 
             if ij[1] - ij[0] == 2 and False:
                 print(ij)
@@ -126,6 +125,13 @@ class OptSingle:
                 print(yij.item(), yt_ij.item())
                 input()
 
+            if abs(ij[1] - ij[0]) > 1:
+                y_ep = F.smooth_l1_loss(foeij / foeij[-1], ep_ / ep_[-1])
+                yt_ij = F.smooth_l1_loss(Tij[:3, :3], T0ij[:3, :3])
+            else:
+                y_ep = 0.0
+                yt_ij = 0.0
+
             #if yij < 1e-4:
             # y = y + 1e-1*yij + yt_ij # (0,1), (1,0)
 
@@ -134,7 +140,7 @@ class OptSingle:
             #elif yij < 1e-8:
             #    y = y + yij
             #else:
-            y = y + yij + 1e-2*yt_ij + 1e-2*y_ep # + 1e-4*yt_ij #
+            y = y + yij # + 1e-2*y_ep + 1e-2*yt_ij # + 1e-4*yt_ij #
         #input()
         #resid = torch.cat(resid, dim=0)
 
@@ -160,7 +166,7 @@ class OptSingle:
         '''
         self.base = np.min([ij[0] for ij in self.g])
         self.min_obj = np.inf
-        Tfoe0 = np.concatenate([T0, foe0, scale], axis=-1) # n,8
+        Tfoe0 = np.concatenate([T0, foe0, scale], axis=-1) # n,10
         Tfoe0 = Tfoe0.reshape((-1,))
         #Tfoe0 = np.expand_dims(Tfoe0, axis=-1)
 
@@ -175,11 +181,9 @@ class OptSingle:
         else:
             for i, par in enumerate(Tfoe0):
                 #if i % 9 > 5 or i % 9 in [1, 3, 5]:
-                if i % 9 == 8:
+                if i % 10 == 9:
                     bounds.append((par - 1e-10, par + 1e-10))
-                elif i % 9 == 2 and False:
-                    bounds.append((par - 1e-10, par + 1e-10))
-                elif i % 9 < 8 and False:
+                elif i % 10 in [6, 7, 8] and False:
                     bounds.append((par - 1e-10, par + 1e-10))
                 else:
                     bounds.append((None, None))

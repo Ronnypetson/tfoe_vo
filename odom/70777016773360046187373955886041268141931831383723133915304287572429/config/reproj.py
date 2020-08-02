@@ -201,7 +201,7 @@ def reproj_tc_foe_slocal(p, p_, T, foe, c):
     p_ = c_ @ p_
     #z = torch.ones(1, 1).double()
     foe = foe * 1e3
-    #foe = foe / (foe[-1] + 1e-10) ### singularity at tz = 0
+    foe = foe / (foe[-1] + 1e-10) ### singularity at tz = 0
     #foe = torch.cat([foe, z], dim=0)
     foe = c_ @ foe
     d = depth_tc2(p, (p_ - p), T, foe)

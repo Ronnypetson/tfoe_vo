@@ -2,13 +2,13 @@ import numpy as np
 from scipy.optimize import minimize, least_squares
 from reproj import gen_pts
 from reproj import reproj_tc_foe
-from reproj import reproj_tc_foe_local
+from reproj import reproj_tc_foe_scale
 from liegroups import SE3
 import torch
 import torch.nn.functional as F
 from liegroups.torch import SE3 as SE3tc
 from hessian import jacobian, hessian
-from utils import compose_local
+from utils import compose_scale
 
 
 class OptSingle:
@@ -89,13 +89,13 @@ class OptSingle:
         y = 0.0
         #resid = []
         for ij in g:
-            Tij, foeij, ep_ = compose_local(ij[0], ij[1],
+            Tij, foeij, scji, ep_ = compose_scale(ij[0], ij[1],
                                             T.clone(), foe.clone(),
                                             scale.clone(), c, base=self.base)
             #print(Tij.detach().numpy())
             #print(torch.inverse(Tij).detach().numpy())
             #print(foeij.detach().numpy())
-            x_rep = reproj_tc_foe_local(torch.from_numpy(self.x[ij]),
+            x_rep = reproj_tc_foe_scale(torch.from_numpy(self.x[ij]),
                                         torch.from_numpy(self.x_[ij]),
                                         Tij, foeij, c)
             yij = F.smooth_l1_loss(c_ @ torch.from_numpy(self.x_[ij]), x_rep)
@@ -111,7 +111,7 @@ class OptSingle:
 
             #resid.append(torch.norm(c_ @ torch.from_numpy(self.x_[ij]) - x_rep, dim=0)**2)
 
-            yt_ij = F.smooth_l1_loss(Tij[:3, :3], T0ij[:3, :3])
+            yt_ij = F.smooth_l1_loss(scji * Tij[:3, :3], T0ij[:3, :3])
             #yt_ij_t = F.smooth_l1_loss(Tij[:2, 3], T0ij[:2, 3] * Tij[2, 3]) ### * Tij[2, 3]
             #yt_ij_t = torch.sum(torch.abs(Tij[:2, 3] - T0ij[:2, 3]))
             y_ep = F.smooth_l1_loss(foeij, ep_)
@@ -123,7 +123,7 @@ class OptSingle:
                 #print(yt_ij_t)
                 print(foeij.detach().numpy())
                 print(ep_.detach().numpy())
-                print(yij.item(), yt_ij.item())
+                #print(yij.item(), yt_ij.item())
                 input()
 
             #if yij < 1e-4:
@@ -134,7 +134,7 @@ class OptSingle:
             #elif yij < 1e-8:
             #    y = y + yij
             #else:
-            y = y + yij + 1e-2*yt_ij + 1e-2*y_ep # + 1e-4*yt_ij #
+            y = y + yij + 1e-2*y_ep + 1e-2*yt_ij # + 1e-4*yt_ij #
         #input()
         #resid = torch.cat(resid, dim=0)
 
@@ -175,7 +175,7 @@ class OptSingle:
         else:
             for i, par in enumerate(Tfoe0):
                 #if i % 9 > 5 or i % 9 in [1, 3, 5]:
-                if i % 9 == 8:
+                if i == 8:
                     bounds.append((par - 1e-10, par + 1e-10))
                 elif i % 9 == 2 and False:
                     bounds.append((par - 1e-10, par + 1e-10))

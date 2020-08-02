@@ -6,7 +6,7 @@ import cv2
 import torch
 from liegroups import SE3
 #from matplotlib import pyplot as plt
-from opt_local import OptSingle
+from opt_slocal import OptSingle
 import pykitti
 from versions import files_to_hash, save_state
 from utils import norm_t, plot_trajs, ba_graph
@@ -134,13 +134,12 @@ class KpT0_BA:
 
                 if np.sum(mask) < 64 and False: ###
                     T0 = np.eye(4)
-                    ep2 = self.camera_matrix[:3, 2]
-                    ep0 = ep2[:2]
+                    ep0 = self.camera_matrix[:3, 2]
                 else:
                     ep2 = T0[:3, 3:]
-                    ep2 = ep2 / (ep2[-1] + 1e-8)
-                    ep2 = self.camera_matrix @ ep2
-                    ep0 = ep2[:2, 0]
+                    #ep2 = ep2 / (ep2[-1] + 1e-8)
+                    ep0 = self.camera_matrix @ ep2
+                ep0 = ep0[:, 0]
 
                 inert = np.linalg.inv(self.gt_odom[i])
                 Tgt = inert @ self.gt_odom[i_]
@@ -220,7 +219,7 @@ def main():
         os.makedirs(exp_dir)
 
     run_date = time.asctime().replace(' ', '_')
-    state_fns = ['kitti_local.py', 'opt_local.py', 'utils.py', 'reproj.py']
+    state_fns = ['kitti_slocal.py', 'opt_slocal.py', 'utils.py', 'reproj.py']
     run_hash = files_to_hash(state_fns)
     run_dir = f'odom/{run_hash}/{run_date}/'
     save_state('odom/', state_fns)
@@ -245,12 +244,12 @@ def main():
     W_poses_init = []
     cloud_all = np.zeros((3, 1))
     gT = np.zeros((kp.seq_len+1, 6))
-    ge = np.zeros((kp.seq_len+1, 2))
+    ge = np.zeros((kp.seq_len+1, 3))
     gs = np.ones((kp.seq_len+1, 1))
-    ge[0] = np.array([607.1928, 185.2157]) / 1e3
-    baw = 4
+    ge[0] = c @ np.array([0.0, 0.0, 1.0]) / 1e3
+    baw = 3
     kp.init_frame(0)
-    rs0 = np.linalg.norm(kp._Tgt[0][:3, 3])
+    #rs0 = np.linalg.norm(kp._Tgt[0][:3, 3])
 
     try:
         for i in range(0, kp.seq_len, baw - 1):
@@ -298,12 +297,13 @@ def main():
             rs_ = 1.0
             rec_sc = [1.0]
             for j in range(i + 1, i + baw - 1, 1):
-                gs[j] = kp._rs0[j]
-                rs_ *= gs[j]
                 continue
-                id0 = j - 1
-                id1 = j
-                id2 = j + 1
+                #gs[j] = kp._rs0[j]
+                #rs_ *= gs[j]
+                #continue
+                #id0 = j - 1
+                #id1 = j
+                #id2 = j + 1
 
                 T01 = kp._Tgt[id0].copy() #
                 T12 = kp._Tgt[id1].copy() #
@@ -326,22 +326,24 @@ def main():
                                 freeze=False)
             print('loss', opt.min_obj)
 
-            Tfoe = Tfoe.reshape(-1, 9)
+            Tfoe = Tfoe.reshape(-1, 10)
             T_ = Tfoe[0, :6]
-            foe = Tfoe[0, 6:8]
-            sc = Tfoe[:, 8]
+            foe = Tfoe[0, 6:9]
+            sc = Tfoe[:, 9]
 
             #gT[i] = T_.copy()
             gT[i:i + baw] = Tfoe[:, :6]
-            ge[i:i + baw] = Tfoe[:, 6:8]
-            #gs[i:i + baw] = Tfoe[:, 8:]
+            ge[i:i + baw] = Tfoe[:, 6:9]
+            #gs[i:i + baw] = Tfoe[:, 9:]
             #gT[0] = Tfoe[0, :6]
-            #ge[0] = Tfoe[0, 6:8]
+            #ge[0] = Tfoe[0, 6:9]
 
             print('ep', foe)
             print('scale\t', sc[:-1])
-            print(1.0, kp._rs0[i + 1] / kp._rs0[i])
+            #print(1.0, kp._rs0[i + 1] / kp._rs0[i])
             print('scalegt\t', scale_gt[:-1])
+            print('~~~', np.linalg.norm(Tfoe[1, :6])
+                  / np.linalg.norm(Tfoe[0, :6]))
 
             for j in range(baw - 1):
                 #normT = np.linalg.norm(kp._Tgt[i + j][:3, 3])
@@ -366,10 +368,10 @@ def main():
                 W_poses_gt.append(pose0_gt)
                 W_poses_init.append(pose0_init)
 
-            if i > 0:
-                rs0 *= gs[i - 1] * rs_
-            else:
-                rs0 *= rs_
+            #if i > 0:
+            #    rs0 *= gs[i - 1] * rs_
+            #else:
+            #    rs0 *= rs_
             #print(rs0)
 
             if i % baw == baw - 1:

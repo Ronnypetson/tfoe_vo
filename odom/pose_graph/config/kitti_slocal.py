@@ -254,8 +254,8 @@ def main():
     try:
         for i in range(0, kp.seq_len, baw - 1):
             kp.init_frame(i)
-            #Tgt = kp._Tgt[i]
-            #T = kp._T0[i]
+            Tgt = kp._Tgt[i]
+            T = kp._T0[i]
 
             g = ba_graph(i, i + (baw - 1))
             p = {}
@@ -295,8 +295,8 @@ def main():
                 ge[i + j] = kp._ep0[i + j].copy() # / 1e3
 
             gs[i] = 1.0
-            #rs_ = 1.0
-            #rec_sc = [1.0]
+            rs_ = 1.0
+            rec_sc = [1.0]
             for j in range(i + 1, i + baw - 1, 1):
                 continue
                 #gs[j] = kp._rs0[j]
@@ -344,9 +344,9 @@ def main():
             #print('çç', s_[0] / s_[1])
             #print('scale\t', sc[:-1])
             #print(1.0, kp._rs0[i + 1] / kp._rs0[i])
-            #print('scalegt\t', scale_gt[:-1])
-            #print('~~~', np.linalg.norm(Tfoe[:, :3], axis=1)
-            #      / np.linalg.norm(Tfoe[0, :3]))
+            print('scalegt\t', scale_gt[:-1])
+            print('~~~', np.linalg.norm(Tfoe[:, :3], axis=1)
+                  / np.linalg.norm(Tfoe[0, :3]))
 
             for j in range(baw - 1):
                 #normT = np.linalg.norm(kp._Tgt[i + j][:3, 3])

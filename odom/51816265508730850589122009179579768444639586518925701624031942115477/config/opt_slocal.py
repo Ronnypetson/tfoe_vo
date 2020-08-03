@@ -92,13 +92,10 @@ class OptSingle:
             Tij, foeij, ep_ = compose_slocal(ij[0], ij[1],
                                              T.clone(), foe.clone(),
                                              scale.clone(), c, base=self.base)
-            x_rep, den = reproj_tc_foe_slocal(torch.from_numpy(self.x[ij]),
-                                              torch.from_numpy(self.x_[ij]),
-                                              Tij, foeij, c)
-            #yij = F.smooth_l1_loss(c_ @ torch.from_numpy(self.x_[ij]), x_rep)
-            yij = (c_ @ torch.from_numpy(self.x_[ij]) - x_rep)**2
-            yij = den * yij
-            yij = torch.mean(yij)
+            x_rep = reproj_tc_foe_slocal(torch.from_numpy(self.x[ij]),
+                                         torch.from_numpy(self.x_[ij]),
+                                         Tij, foeij, c)
+            yij = F.smooth_l1_loss(c_ @ torch.from_numpy(self.x_[ij]), x_rep)
 
             T0ij = torch.from_numpy(self.T0ij[ij])
             #t0ij = T0ij[:3, 3:]

@@ -169,9 +169,9 @@ def ba_graph(i, j):
         if start < j - 1:
             g.append((start, start + 2))
             g.append((start + 2, start))
-    #    if start < j - 2:
-    #        g.append((start, start + 3))
-    #        g.append((start + 3, start))
+        if start < j - 2:
+            g.append((start, start + 3))
+            g.append((start + 3, start))
 
     #for end in range(i + 1, j + 1):
     #    g.append((end, i))

@@ -92,13 +92,13 @@ class OptSingle:
             Tij, foeij, ep_ = compose_slocal(ij[0], ij[1],
                                              T.clone(), foe.clone(),
                                              scale.clone(), c, base=self.base)
-            x_rep, den = reproj_tc_foe_slocal(torch.from_numpy(self.x[ij]),
-                                              torch.from_numpy(self.x_[ij]),
-                                              Tij, foeij, c)
-            #yij = F.smooth_l1_loss(c_ @ torch.from_numpy(self.x_[ij]), x_rep)
-            yij = (c_ @ torch.from_numpy(self.x_[ij]) - x_rep)**2
-            yij = den * yij
-            yij = torch.mean(yij)
+            #print(Tij.detach().numpy())
+            #print(torch.inverse(Tij).detach().numpy())
+            #print(foeij.detach().numpy())
+            x_rep = reproj_tc_foe_slocal(torch.from_numpy(self.x[ij]),
+                                         torch.from_numpy(self.x_[ij]),
+                                         Tij, foeij, c)
+            yij = F.smooth_l1_loss(c_ @ torch.from_numpy(self.x_[ij]), x_rep)
 
             T0ij = torch.from_numpy(self.T0ij[ij])
             #t0ij = T0ij[:3, 3:]
@@ -110,10 +110,9 @@ class OptSingle:
             #yij0 = F.smooth_l1_loss(c_ @ torch.from_numpy(self.x_[ij]), x_rep0)
 
             #yt_ij_t = torch.sum(torch.abs(Tij[:2, 3] - T0ij[:2, 3]))
-            y_ep = F.smooth_l1_loss(foeij / (foeij[-1] + 1e-10),
-                                    ep_ / (ep_[-1] + 1e-10))
+            #y_ep = F.smooth_l1_loss(foeij / (foeij[-1] + 1e-10),
+            #                        ep_ / (ep_[-1] + 1e-10))
             yt_ij = F.smooth_l1_loss(Tij[:3, :3], T0ij[:3, :3])
-            #yt_ij = F.smooth_l1_loss(Tij, T0ij)
 
             if ij[1] - ij[0] == 2 and False:
                 print(ij)
@@ -125,11 +124,8 @@ class OptSingle:
                 print(yij.item()) # , yt_ij.item()
                 input()
 
-            #if abs(ij[1] - ij[0]) > 1:
-            #    y = y + yt_ij # + 1e-2*yt_ij # + 1e-4*yt_ij #
-            #else:
-            #    y = y + yij
-            y = y + yij
+            #if abs(ij[1] - ij[0]) == 1 or yij < 1e-6:
+            y = y + 1e-2*yt_ij # + 1e-4*yt_ij #
         #input()
         #resid = torch.cat(resid, dim=0)
 
@@ -172,7 +168,7 @@ class OptSingle:
                 #if i % 9 > 5 or i % 9 in [1, 3, 5]:
                 if i % 10 == 9:
                     bounds.append((par - 1e-10, par + 1e-10))
-                elif (i % 10 < 3 or i % 10 in [6, 7, 8]) and False:
+                elif i % 10 in [6, 7, 8] and False:
                     bounds.append((par - 1e-10, par + 1e-10))
                 else:
                     bounds.append((None, None))

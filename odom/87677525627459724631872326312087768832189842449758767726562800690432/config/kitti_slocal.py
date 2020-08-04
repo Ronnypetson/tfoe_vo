@@ -154,7 +154,8 @@ class KpT0_BA:
                     w, h = self.camera_matrix[:2, 2]
                     spt = [j for j, p in enumerate(kp0)
                            if p[0, 1] > 3 * h // 2
-                           and np.abs(p[0, 0] - w) < 300]
+                           and np.abs(p[0, 0] - w) < 300
+                           and j in vids]
                     # and j in vids
                     spt0 = kp0[spt][:, 0].T # spt
                     spt1 = p1[spt][:, 0].T
@@ -187,8 +188,8 @@ class KpT0_BA:
                     sc = 1.0 / np.abs(sx[2] * (spt0[1]))
                     sc = np.median(sc) # / np.min(sc)
                     self._rs0[i] = sc
-                    #sgt = np.linalg.norm(Tgt[:3, 3:])
-                    #print(sgt / sc)
+                    sgt = np.linalg.norm(Tgt[:3, 3:])
+                    print(sgt / sc)
 
                 #norm_gt = np.linalg.norm(Tgt[:3, 3:])
                 #T0 = norm_t(T0.copy(), norm_gt)
@@ -295,7 +296,7 @@ def main():
     ge[0] = c @ np.array([0.0, 0.0, 1.0]) # / 1e3
     baw = 4
     kp.init_frame(0)
-    sgt0 = np.linalg.norm(kp._Tgt[0][:3, 3]) / kp._rs0[0]
+    #rs0 = np.linalg.norm(kp._Tgt[0][:3, 3])
 
     try:
         for i in range(0, kp.seq_len, baw - 1):
@@ -341,6 +342,8 @@ def main():
                 ge[i + j] = kp._ep0[i + j].copy() # / 1e3
 
             gs[i] = 1.0
+            #rs_ = 1.0
+            #rec_sc = [1.0]
             for j in range(i + 1, i + baw - 1, 1):
                 continue
                 #gs[j] = kp._rs0[j]
@@ -395,7 +398,7 @@ def main():
             for j in range(baw - 1):
                 #normT = np.linalg.norm(kp._Tgt[i + j][:3, 3])
                 #normT = rs0 * gs[i + j]
-                normT = sgt0 * kp._rs0[i + j] #1.0
+                normT = kp._rs0[i + j] #1.0
                 poses.append(norm_t(kp._T0[i + j].copy(), normT))
                 #poses_gt.append(norm_t(kp._Tgt[i + j].copy(), normT))
                 poses_gt.append(kp._Tgt[i + j].copy())
@@ -404,7 +407,7 @@ def main():
                 #T_ = SE3.exp(T_).as_matrix() # .inv()
                 T_ = SE3.exp(Tfoe[j, :6]).as_matrix()
                 #normT = np.linalg.norm(kp._Tgt[i + j][:3, 3])
-                normT = sgt0 * kp._rs0[i + j] #1.0
+                normT = kp._rs0[i + j] #1.0
                 #normT = rs0 * gs[i + j]
                 poses_.append(norm_t(T_.copy(), normT))
                 #poses_.append(T_.copy())

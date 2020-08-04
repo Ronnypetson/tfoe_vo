@@ -154,7 +154,8 @@ class KpT0_BA:
                     w, h = self.camera_matrix[:2, 2]
                     spt = [j for j, p in enumerate(kp0)
                            if p[0, 1] > 3 * h // 2
-                           and np.abs(p[0, 0] - w) < 300]
+                           and np.abs(p[0, 0] - w) < 300
+                           and j in vids]
                     # and j in vids
                     spt0 = kp0[spt][:, 0].T # spt
                     spt1 = p1[spt][:, 0].T

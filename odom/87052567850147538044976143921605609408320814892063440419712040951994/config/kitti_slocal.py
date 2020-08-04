@@ -100,11 +100,8 @@ class KpT0_BA:
                                               self._trpt[i - 1][1][1]], axis=0)
 
                     X0 = triangulate_(trpts_0.T, trpts_1.T,
-                                      np.linalg.inv(self._T0[i - 1]),
-                                      self.camera_matrix)
-                    X1 = triangulate_(trpts.T, trpts_.T,
-                                      np.linalg.inv(T0),
-                                      self.camera_matrix)
+                                      self._T0[i - 1], self.camera_matrix)
+                    X1 = triangulate_(trpts.T, trpts_.T, T0, self.camera_matrix)
 
                     rss = []
                     for i0 in range(len(X0[0])):
@@ -115,8 +112,8 @@ class KpT0_BA:
                             d1 = np.linalg.norm(X1[:, i0] - X1[:, i1])
                             rss.append(d1 / (d0 + 1e-10) )
                     self._rs0[i] = np.median(rss)
-                    print(self._rs0[i])
-                    input()
+                    #print(self._rs0[i])
+                    #input()
 
                     ids0 = np.random.choice(kpids, 10, replace=False)
                     ids1 = np.random.choice(kpids, 10, replace=False)
@@ -150,45 +147,51 @@ class KpT0_BA:
                 inert = np.linalg.inv(self.gt_odom[i])
                 Tgt = inert @ self.gt_odom[i_]
 
-                if True:
-                    w, h = self.camera_matrix[:2, 2]
-                    spt = [j for j, p in enumerate(kp0)
-                           if p[0, 1] > 3 * h // 2
-                           and np.abs(p[0, 0] - w) < 300]
-                    # and j in vids
-                    spt0 = kp0[spt][:, 0].T # spt
-                    spt1 = p1[spt][:, 0].T
+                w, h = self.camera_matrix[:2, 2]
+                spt = [j for j, p in enumerate(kp0)
+                       if p[0, 1] > 3 * h // 2
+                       and np.abs(p[0, 0] - w) < 300
+                       and j in vids]
+                # and j in vids
+                spt0 = kp0[vids][:, 0].T # spt
+                spt1 = p1[vids][:, 0].T
 
-                    Ts = np.linalg.inv(Tgt.copy())
-                    Ts[:3, 3] /= np.linalg.norm(Ts[:3, 3])
-                    sx = triangulate_(spt0, spt1, Ts,
-                                      self.camera_matrix)
-                    #sx = triangulate(spt0, spt1, Ts,
-                    #                 self.camera_matrix,
-                    #                 self.camera_matrix @ Ts[:3, 3:])
-                    good = [j for j in range(sx.shape[1])
-                            if sx[2, j] < 200
-                            and sx[2, j] > 0.0]
-                    sx = sx[:, good]
-                    spt0 = spt0[:, good]
-                    #sx = sx / sx[2]
+                #print(spt0[:, :10].T)
+                #input()
 
-                    #fig = plt.figure()
-                    #ax = fig.add_subplot(111, projection='3d')
-                    #ax.view_init(elev=-90.0, azim=-90.0)
-                    #ax.scatter(sx[0], sx[1], sx[2], marker='.')
-                    #ax.set_xlabel('X Label')
-                    #ax.set_ylabel('Y Label')
-                    #ax.set_zlabel('Z Label')
-                    #plt.show()
+                #c_ = np.linalg.inv(self.camera_matrix)
+                #spt0 = c_[:2, :2] @ spt0 + c_[:2, 2:]
+                #spt1 = c_[:2, :2] @ spt1 + c_[:2, 2:]
+                Ts = np.linalg.inv(Tgt.copy())
+                Ts[:3, 3] /= np.linalg.norm(Ts[:3, 3])
+                sx = triangulate_(spt0, spt1, Ts, self.camera_matrix)
+                #sx = triangulate(spt0, spt1, Ts,
+                #                 self.camera_matrix,
+                #                 self.camera_matrix @ Ts[:3, 3:])
+                good = [j for j in range(sx.shape[1])
+                        if sx[2, j] < 200
+                        and sx[2, j] > 0.0]
+                sx = sx[:, good]
+                spt0 = spt0[:, good]
+                #sx = sx / sx[2]
 
-                    c_ = np.linalg.inv(self.camera_matrix)
-                    spt0 = c_[:2, :2] @ spt0 + c_[:2, 2:]
-                    sc = 1.0 / np.abs(sx[2] * (spt0[1]))
-                    sc = np.median(sc) # / np.min(sc)
-                    self._rs0[i] = sc
-                    #sgt = np.linalg.norm(Tgt[:3, 3:])
-                    #print(sgt / sc)
+                fig = plt.figure()
+                ax = fig.add_subplot(111, projection='3d')
+                ax.view_init(elev=-90.0, azim=-90.0)
+                ax.scatter(sx[0], sx[1],
+                           1.0 / np.abs(sx[2] * (spt0[1])), marker='.')
+                ax.set_xlabel('X Label')
+                ax.set_ylabel('Y Label')
+                ax.set_zlabel('Z Label')
+                plt.show()
+
+                c_ = np.linalg.inv(self.camera_matrix)
+                spt0 = c_[:2, :2] @ spt0 + c_[:2, 2:]
+                sc = 1.0 / np.abs(sx[2] * (spt0[1]))
+                sc = np.median(sc) # / np.min(sc)
+                #sc = (1e5 * sc)**0.3
+                sgt = np.linalg.norm(Tgt[:3, 3:])
+                print(sgt / sc)
 
                 #norm_gt = np.linalg.norm(Tgt[:3, 3:])
                 #T0 = norm_t(T0.copy(), norm_gt)
@@ -295,7 +298,7 @@ def main():
     ge[0] = c @ np.array([0.0, 0.0, 1.0]) # / 1e3
     baw = 4
     kp.init_frame(0)
-    sgt0 = np.linalg.norm(kp._Tgt[0][:3, 3]) / kp._rs0[0]
+    #rs0 = np.linalg.norm(kp._Tgt[0][:3, 3])
 
     try:
         for i in range(0, kp.seq_len, baw - 1):
@@ -341,6 +344,8 @@ def main():
                 ge[i + j] = kp._ep0[i + j].copy() # / 1e3
 
             gs[i] = 1.0
+            #rs_ = 1.0
+            #rec_sc = [1.0]
             for j in range(i + 1, i + baw - 1, 1):
                 continue
                 #gs[j] = kp._rs0[j]
@@ -395,23 +400,21 @@ def main():
             for j in range(baw - 1):
                 #normT = np.linalg.norm(kp._Tgt[i + j][:3, 3])
                 #normT = rs0 * gs[i + j]
-                normT = sgt0 * kp._rs0[i + j] #1.0
+                normT = 1.0
                 poses.append(norm_t(kp._T0[i + j].copy(), normT))
-                #poses_gt.append(norm_t(kp._Tgt[i + j].copy(), normT))
-                poses_gt.append(kp._Tgt[i + j].copy())
+                poses_gt.append(norm_t(kp._Tgt[i + j].copy(), normT))
 
             for j in range(baw - 1):
                 #T_ = SE3.exp(T_).as_matrix() # .inv()
                 T_ = SE3.exp(Tfoe[j, :6]).as_matrix()
                 #normT = np.linalg.norm(kp._Tgt[i + j][:3, 3])
-                normT = sgt0 * kp._rs0[i + j] #1.0
+                normT = 1.0
                 #normT = rs0 * gs[i + j]
                 poses_.append(norm_t(T_.copy(), normT))
                 #poses_.append(T_.copy())
                 #pose0 = pose0 @ T_
                 pose0 = pose0 @ norm_t(T_.copy(), normT)
-                #pose0_gt = pose0_gt @ norm_t(kp._Tgt[i + j].copy(), normT)
-                pose0_gt = pose0_gt @ kp._Tgt[i + j].copy()
+                pose0_gt = pose0_gt @ norm_t(kp._Tgt[i + j].copy(), normT)
                 pose0_init = pose0_init @ norm_t(kp._T0[i + j].copy(), normT)
                 W_poses.append(pose0)
                 W_poses_gt.append(pose0_gt)

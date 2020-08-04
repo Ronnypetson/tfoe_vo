@@ -149,18 +149,28 @@ class KpT0_BA:
 
                 w, h = self.camera_matrix[:2, 2]
                 spt = [j for j, p in enumerate(kp0)
-                       if p[0, 1] > h + h // 3
-                       and np.abs(p[0, 0] - w) > 15]
+                       if p[0, 1] > 3 * h // 2
+                       and np.abs(p[0, 0] - w) < 300
+                       and j in vids]
+                # and j in vids
                 spt0 = kp0[spt][:, 0].T # spt
                 spt1 = p1[spt][:, 0].T
+
+                #print(spt0[:, :10].T)
+                #input()
 
                 #c_ = np.linalg.inv(self.camera_matrix)
                 #spt0 = c_[:2, :2] @ spt0 + c_[:2, 2:]
                 #spt1 = c_[:2, :2] @ spt1 + c_[:2, 2:]
-                #sx = triangulate_(spt0, spt1, T0, self.camera_matrix)
-                sx = triangulate(spt0, spt1, T0, self.camera_matrix, ep0)
+                Ts = np.linalg.inv(Tgt.copy())
+                Ts[:3, 3] /= np.linalg.norm(Ts[:3, 3])
+                sx = triangulate_(spt0, spt1, Ts, self.camera_matrix)
+                #sx = triangulate(spt0, spt1, Ts,
+                #                 self.camera_matrix,
+                #                 self.camera_matrix @ Ts[:3, 3:])
                 good = [j for j in range(sx.shape[1])
-                        if np.abs(sx[2, j]) < 20]
+                        if sx[2, j] < 200
+                        and sx[2, j] > 0.0]
                 sx = sx[:, good]
                 spt0 = spt0[:, good]
                 #sx = sx / sx[2]
@@ -174,13 +184,13 @@ class KpT0_BA:
                 #ax.set_zlabel('Z Label')
                 #plt.show()
 
+                c_ = np.linalg.inv(self.camera_matrix)
+                spt0 = c_[:2, :2] @ spt0 + c_[:2, 2:]
                 sc = 1.0 / np.abs(sx[2] * (spt0[1]))
                 sc = np.median(sc) # / np.min(sc)
                 #sc = (1e5 * sc)**0.3
                 sgt = np.linalg.norm(Tgt[:3, 3:])
                 print(sgt / sc)
-                #print(1e5*sc)
-                input()
 
                 #norm_gt = np.linalg.norm(Tgt[:3, 3:])
                 #T0 = norm_t(T0.copy(), norm_gt)

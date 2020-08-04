@@ -45,11 +45,17 @@ def triangulate(p, p_, T, c, e):
     e is 2x1 in pixel coordinates
     '''
     c_ = np.linalg.inv(c)
-    z = np.ones((1, 1))
-    e = e * 1e3
-    e = np.expand_dims(e, axis=-1)
-    e = np.concatenate([e, z], axis=0)
+    z = np.ones((1, p.shape[1]))
+    p = np.concatenate([p, z], axis=0)
+    p_ = np.concatenate([p_, z], axis=0)
+    #e = e * 1e3
+    #e = np.expand_dims(e, axis=-1)
+    #e = np.concatenate([e, z], axis=0)
+    e = np.reshape(e, (3, 1))
     e = c_ @ e
+    e = e / e[-1]
+    p = c_ @ p
+    p_ = c_ @ p_
 
     d = depth_np2(p, (p_ - p), T, e)
     x = p * d
@@ -72,6 +78,7 @@ def triangulate_(p, p_, T, c):
     p_ = np.array(p_, dtype=np.float32)
     X = cv2.triangulatePoints(P0, P1, p, p_)
     X = X / X[3]
+    X = X[:3]
     return X
 
 
@@ -299,10 +306,10 @@ def depth_np2(p, f, T, foe):
         f is 3xN (flow)
         foe is 3x1
     '''
-    p = torch.from_numpy(p)
-    f = torch.from_numpy(f)
-    T = torch.from_numpy(T)
-    foe = torch.from_numpy(foe)
+    p = torch.from_numpy(p).double()
+    f = torch.from_numpy(f).double()
+    T = torch.from_numpy(T).double()
+    foe = torch.from_numpy(foe).double()
     d = depth_tc2(p, f, T, foe)
     d = d.detach().numpy()
     return d

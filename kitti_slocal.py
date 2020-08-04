@@ -5,7 +5,10 @@ import numpy as np
 import cv2
 import torch
 from liegroups import SE3
-#from matplotlib import pyplot as plt
+
+from mpl_toolkits.mplot3d import Axes3D
+from matplotlib import pyplot as plt
+
 from opt_slocal import OptSingle
 import pykitti
 from versions import files_to_hash, save_state
@@ -75,7 +78,7 @@ class KpT0_BA:
                 #T0[:3, 3:] = t / (t[-1] + 1e-10)
 
                 kpids = list(range(len(kp0)))
-                if i == 0:
+                if i == 0 and False:
                     ids0 = np.random.choice(kpids, 10, replace=False)
                     ids1 = np.random.choice(kpids, 10, replace=False)
                     trpt00 = kp0[ids0][:, 0]
@@ -143,6 +146,41 @@ class KpT0_BA:
 
                 inert = np.linalg.inv(self.gt_odom[i])
                 Tgt = inert @ self.gt_odom[i_]
+
+                w, h = self.camera_matrix[:2, 2]
+                spt = [j for j, p in enumerate(kp0)
+                       if p[0, 1] > h + h // 3
+                       and np.abs(p[0, 0] - w) > 15]
+                spt0 = kp0[spt][:, 0].T # spt
+                spt1 = p1[spt][:, 0].T
+
+                #c_ = np.linalg.inv(self.camera_matrix)
+                #spt0 = c_[:2, :2] @ spt0 + c_[:2, 2:]
+                #spt1 = c_[:2, :2] @ spt1 + c_[:2, 2:]
+                #sx = triangulate_(spt0, spt1, T0, self.camera_matrix)
+                sx = triangulate(spt0, spt1, T0, self.camera_matrix, ep0)
+                good = [j for j in range(sx.shape[1])
+                        if np.abs(sx[2, j]) < 20]
+                sx = sx[:, good]
+                spt0 = spt0[:, good]
+                #sx = sx / sx[2]
+
+                #fig = plt.figure()
+                #ax = fig.add_subplot(111, projection='3d')
+                #ax.view_init(elev=-90.0, azim=-90.0)
+                #ax.scatter(sx[0], sx[1], sx[2], marker='.')
+                #ax.set_xlabel('X Label')
+                #ax.set_ylabel('Y Label')
+                #ax.set_zlabel('Z Label')
+                #plt.show()
+
+                sc = 1.0 / np.abs(sx[2] * (spt0[1]))
+                sc = np.median(sc) # / np.min(sc)
+                #sc = (1e5 * sc)**0.3
+                sgt = np.linalg.norm(Tgt[:3, 3:])
+                print(sgt / sc)
+                #print(1e5*sc)
+                input()
 
                 #norm_gt = np.linalg.norm(Tgt[:3, 3:])
                 #T0 = norm_t(T0.copy(), norm_gt)

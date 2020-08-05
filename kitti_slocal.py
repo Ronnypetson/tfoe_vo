@@ -36,6 +36,10 @@ class KpT0_BA:
         self.lk_params = dict(winSize=(21, 21),
                               criteria=(cv2.TERM_CRITERIA_EPS |
                                    cv2.TERM_CRITERIA_COUNT, 30, 0.03))
+        #self.lk_params = dict(winSize=(15, 15),
+        #                      maxLevel=3,
+        #                      criteria=(cv2.TERM_CRITERIA_EPS |
+        #                                cv2.TERM_CRITERIA_COUNT, 55, 0.01))
         self.bf = cv2.BFMatcher(cv2.NORM_HAMMING, crossCheck=True)
 
         self._kpts = {} # keypoint cache, i -> kp
@@ -73,77 +77,33 @@ class KpT0_BA:
 
                 _, R, t, mask = cv2.recoverPose(E, p1, kp0, self.camera_matrix, mask=mask)
                 T0 = np.eye(4)
+
+                if np.trace(R) < 3*(1.0 - 0.2)\
+                    or np.any(np.isnan(R))\
+                    or np.any(np.isinf(R)):
+                    R = np.eye(3)
+                    t = np.zeros((3, 1))
+
+                if np.max(np.abs(t)) < 0.7\
+                    or np.any(np.isnan(t))\
+                    or np.any(np.isinf(t)):
+                    t = np.zeros((3, 1))
+
                 T0[:3, :3] = R
                 T0[:3, 3:] = t
-                #T0[:3, 3:] = t / (t[-1] + 1e-10)
-
-                kpids = list(range(len(kp0)))
-                if i == 0 and False:
-                    ids0 = np.random.choice(kpids, 10, replace=False)
-                    ids1 = np.random.choice(kpids, 10, replace=False)
-                    trpt00 = kp0[ids0][:, 0]
-                    trpt01 = kp0[ids1][:, 0]
-                    trpt10 = p1[ids0][:, 0]
-                    trpt11 = p1[ids1][:, 0]
-                    self._trpt[i] = [(trpt00, trpt01), (trpt10, trpt11)]
-                    self._rs0[i] = 1.0
-                elif False:
-                    trpt00 = self._trpt[i - 1][1][0]
-                    trpt01 = self._trpt[i - 1][1][1]
-                    trpts = np.concatenate([trpt00, trpt01], axis=0)
-                    trpts_, _, _ = cv2.calcOpticalFlowPyrLK(im0, im1, trpts,
-                                                            None, **self.lk_params)
-                    #self._trpt[i] = [(trpt00, trpts_[0]), (trpt01, trpts_[1])]
-                    trpts_0 = np.concatenate([self._trpt[i - 1][0][0],
-                                              self._trpt[i - 1][0][1]], axis=0)
-                    trpts_1 = np.concatenate([self._trpt[i - 1][1][0],
-                                              self._trpt[i - 1][1][1]], axis=0)
-
-                    X0 = triangulate_(trpts_0.T, trpts_1.T,
-                                      np.linalg.inv(self._T0[i - 1]),
-                                      self.camera_matrix)
-                    X1 = triangulate_(trpts.T, trpts_.T,
-                                      np.linalg.inv(T0),
-                                      self.camera_matrix)
-
-                    rss = []
-                    for i0 in range(len(X0[0])):
-                        for i1 in range(len(X1[0])):
-                            if i0 == i1:
-                                continue
-                            d0 = np.linalg.norm(X0[:, i0] - X0[:, i1])
-                            d1 = np.linalg.norm(X1[:, i0] - X1[:, i1])
-                            rss.append(d1 / (d0 + 1e-10) )
-                    self._rs0[i] = np.median(rss)
-                    print(self._rs0[i])
-                    input()
-
-                    ids0 = np.random.choice(kpids, 10, replace=False)
-                    ids1 = np.random.choice(kpids, 10, replace=False)
-                    trpt00 = kp0[ids0][:, 0]
-                    trpt01 = kp0[ids1][:, 0]
-                    trpt10 = p1[ids0][:, 0]
-                    trpt11 = p1[ids1][:, 0]
-                    self._trpt[i] = [(trpt00, trpt01), (trpt10, trpt11)]
-                else:
-                    self._rs0[i] = 1.0
 
                 if len(mask) > 3:
                     vids_ = [j for j in range(len(mask)) if mask[j] == 1.0]
                     if len(vids_) > 3:
                         vids = vids_
-                if np.mean(np.abs(p1[vids] - kp0[vids])) < 1e-2:
-                    T0 = np.eye(4)
-                    moving = False
-                else:
-                    moving = True
-
-                if np.sum(mask) < 64 and False: ###
-                    T0 = np.eye(4)
-                    ep0 = self.camera_matrix[:3, 2]
+                if np.median(np.abs(p1[vids] - kp0[vids])) < 1e-2 and False:
+                    T0[:3, :3] = np.eye(3)
+                    ep0 = self.camera_matrix[:3, 2:]
+                elif np.sum(mask) < 64 and False: ###
+                    T0[:3, :3] = np.eye(3)
+                    ep0 = self.camera_matrix[:3, 2:]
                 else:
                     ep2 = T0[:3, 3:]
-                    #ep2 = ep2 / (ep2[-1] + 1e-8)
                     ep0 = self.camera_matrix @ ep2
                 ep0 = ep0[:, 0]
 
@@ -186,7 +146,10 @@ class KpT0_BA:
                     spt0 = c_[:2, :2] @ spt0 + c_[:2, 2:]
                     sc = 1.0 / np.abs(sx[2] * (spt0[1]))
                     sc = np.median(sc) # / np.min(sc)
-                    self._rs0[i] = sc
+                    if np.isnan(sc):
+                        self._rs0[i] = 1.0
+                    else:
+                        self._rs0[i] = sc
                     #sgt = np.linalg.norm(Tgt[:3, 3:])
                     #print(sgt / sc)
 
@@ -205,7 +168,7 @@ class KpT0_BA:
                     self._gTgt[i] = T0
                 self._vids[(i, i_)] = vids
                 self._avids[(i, i_)] = avids
-                self._moving[i] = moving
+                self._moving[i] = True
             except Exception as e:
                 print(e)
                 raise e
@@ -293,7 +256,7 @@ def main():
     ge = np.zeros((kp.seq_len + 1, 3))
     gs = np.ones((kp.seq_len + 1, 1))
     ge[0] = c @ np.array([0.0, 0.0, 1.0]) # / 1e3
-    baw = 4
+    baw = 2
     kp.init_frame(0)
     sgt0 = np.linalg.norm(kp._Tgt[0][:3, 3]) / kp._rs0[0]
 
@@ -329,7 +292,7 @@ def main():
 
             for j in range(baw):
                 T0 = SE3.from_matrix(kp._T0[i + j].copy(), normalize=True).log()
-                #T0[:3] *= 0.0
+                #T0[:3] = np.array([0.0, 0.0, 1.0])
                 #T0 = np.zeros(6)
                 norm_gt = np.linalg.norm(kp._Tgt[i + j][:3, 3].copy())
                 #norm_gt = kp._Tgt[i + j][2, 3]
@@ -339,6 +302,7 @@ def main():
 
             for j in range(baw):
                 ge[i + j] = kp._ep0[i + j].copy() # / 1e3
+                #ge[i + j] = c @ np.array([0.0, 0.0, 1.0])
 
             gs[i] = 1.0
             for j in range(i + 1, i + baw - 1, 1):
@@ -368,7 +332,7 @@ def main():
             Tfoe = opt.optimize(gT[i:i + baw],
                                 ge[i:i + baw],
                                 gs[i:i + baw],
-                                freeze=False)
+                                freeze=True)
             print('loss', opt.min_obj)
 
             Tfoe = Tfoe.reshape(-1, 10)
@@ -423,7 +387,7 @@ def main():
             #    rs0 *= rs_
             #print(rs0)
 
-            if i % baw == baw - 1:
+            if (i % baw == baw - 1) and (i % 10 == 9):
                 P = [poses_gt, poses, poses_]
                 #P = [poses_gt, poses, W_poses]
                 plot_trajs(P, f'{run_dir}/{seq_id}.svg', glb=False)

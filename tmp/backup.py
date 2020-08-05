@@ -49,3 +49,54 @@
 # print(rs)
 # rs_ = rs * rs_
 # gs[j] = rs_
+
+kpids = list(range(len(kp0)))
+if i == 0 and False:
+    ids0 = np.random.choice(kpids, 10, replace=False)
+    ids1 = np.random.choice(kpids, 10, replace=False)
+    trpt00 = kp0[ids0][:, 0]
+    trpt01 = kp0[ids1][:, 0]
+    trpt10 = p1[ids0][:, 0]
+    trpt11 = p1[ids1][:, 0]
+    self._trpt[i] = [(trpt00, trpt01), (trpt10, trpt11)]
+    self._rs0[i] = 1.0
+elif False:
+    trpt00 = self._trpt[i - 1][1][0]
+    trpt01 = self._trpt[i - 1][1][1]
+    trpts = np.concatenate([trpt00, trpt01], axis=0)
+    trpts_, _, _ = cv2.calcOpticalFlowPyrLK(im0, im1, trpts,
+                                            None, **self.lk_params)
+    # self._trpt[i] = [(trpt00, trpts_[0]), (trpt01, trpts_[1])]
+    trpts_0 = np.concatenate([self._trpt[i - 1][0][0],
+                              self._trpt[i - 1][0][1]], axis=0)
+    trpts_1 = np.concatenate([self._trpt[i - 1][1][0],
+                              self._trpt[i - 1][1][1]], axis=0)
+
+    X0 = triangulate_(trpts_0.T, trpts_1.T,
+                      np.linalg.inv(self._T0[i - 1]),
+                      self.camera_matrix)
+    X1 = triangulate_(trpts.T, trpts_.T,
+                      np.linalg.inv(T0),
+                      self.camera_matrix)
+
+    rss = []
+    for i0 in range(len(X0[0])):
+        for i1 in range(len(X1[0])):
+            if i0 == i1:
+                continue
+            d0 = np.linalg.norm(X0[:, i0] - X0[:, i1])
+            d1 = np.linalg.norm(X1[:, i0] - X1[:, i1])
+            rss.append(d1 / (d0 + 1e-10))
+    self._rs0[i] = np.median(rss)
+    print(self._rs0[i])
+    input()
+
+    ids0 = np.random.choice(kpids, 10, replace=False)
+    ids1 = np.random.choice(kpids, 10, replace=False)
+    trpt00 = kp0[ids0][:, 0]
+    trpt01 = kp0[ids1][:, 0]
+    trpt10 = p1[ids0][:, 0]
+    trpt11 = p1[ids1][:, 0]
+    self._trpt[i] = [(trpt00, trpt01), (trpt10, trpt11)]
+else:
+    self._rs0[i] = 1.0

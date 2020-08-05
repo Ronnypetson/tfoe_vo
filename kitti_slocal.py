@@ -33,13 +33,13 @@ class KpT0_BA:
         self.c_ = np.linalg.inv(self.camera_matrix)
         self.feature_detector = cv2.FastFeatureDetector_create(threshold=fast_th,
                                                                nonmaxSuppression=True)
-        self.lk_params = dict(winSize=(21, 21),
-                              criteria=(cv2.TERM_CRITERIA_EPS |
-                                   cv2.TERM_CRITERIA_COUNT, 30, 0.03))
-        #self.lk_params = dict(winSize=(15, 15),
-        #                      maxLevel=3,
+        #self.lk_params = dict(winSize=(21, 21),
         #                      criteria=(cv2.TERM_CRITERIA_EPS |
-        #                                cv2.TERM_CRITERIA_COUNT, 55, 0.01))
+        #                           cv2.TERM_CRITERIA_COUNT, 30, 0.03))
+        self.lk_params = dict(winSize=(15, 15),
+                              maxLevel=3,
+                              criteria=(cv2.TERM_CRITERIA_EPS |
+                                        cv2.TERM_CRITERIA_COUNT, 55, 0.03))
         self.bf = cv2.BFMatcher(cv2.NORM_HAMMING, crossCheck=True)
 
         self._kpts = {} # keypoint cache, i -> kp
@@ -81,13 +81,23 @@ class KpT0_BA:
                 if np.trace(R) < 3*(1.0 - 0.2)\
                     or np.any(np.isnan(R))\
                     or np.any(np.isinf(R)):
+                    print('Bad R')
+                    print(R)
+                    print(t)
+                    input()
                     R = np.eye(3)
                     t = np.zeros((3, 1))
+                    t[-1] = 1.0
 
-                if np.max(np.abs(t)) < 0.7\
+                if np.max(np.abs(t)) < 0.8\
                     or np.any(np.isnan(t))\
                     or np.any(np.isinf(t)):
+                    print('Bad t')
+                    print(R)
+                    print(t)
+                    input()
                     t = np.zeros((3, 1))
+                    t[-1] = 1.0
 
                 T0[:3, :3] = R
                 T0[:3, 3:] = t
@@ -147,7 +157,12 @@ class KpT0_BA:
                     sc = 1.0 / np.abs(sx[2] * (spt0[1]))
                     sc = np.median(sc) # / np.min(sc)
                     if np.isnan(sc):
-                        self._rs0[i] = 1.0
+                        print('Bad scale')
+                        input()
+                        if i == 0:
+                            self._rs0[i] = 1.0
+                        else:
+                            self._rs0[i] = self._rs0[i - 1]
                     else:
                         self._rs0[i] = sc
                     #sgt = np.linalg.norm(Tgt[:3, 3:])

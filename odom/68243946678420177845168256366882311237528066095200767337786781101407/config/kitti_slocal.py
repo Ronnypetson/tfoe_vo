@@ -115,9 +115,14 @@ class KpT0_BA:
                 if True:
                     w, h = self.camera_matrix[:2, 2]
                     spt = [j for j, p in enumerate(kp0)
-                           if p[0, 1] > 3 * h // 2
-                           and np.abs(p[0, 0] - w) < 300]
-                    # and j in vids
+                           if p[0, 1] > h
+                           and np.abs(p[0, 0] - w) < 230
+                           and j in avids]
+                    if len(spt) < 8:
+                        spt = [j for j, p in enumerate(kp0)
+                               if p[0, 1] > h
+                               and np.abs(p[0, 0] - w) < 230]
+                    # and np.abs(p[0, 0] - w) < 300
                     spt0 = kp0[spt][:, 0].T # spt
                     spt1 = p1[spt][:, 0].T
 
@@ -296,10 +301,11 @@ def main():
     ge[0] = c @ np.array([0.0, 0.0, 1.0]) # / 1e3
     baw = 2
     kp.init_frame(0)
-    sgt0 = np.linalg.norm(kp._Tgt[0][:3, 3]) / kp._rs0[0]
+    sgt0 = np.linalg.norm(kp._Tgt[0][:3, 3])\
+            / np.linalg.norm(kp._T0[0][:3, 3]) #kp._rs0[0]
 
     try:
-        for i in range(0, kp.seq_len, baw - 1):
+        for i in range(0, kp.seq_len - (baw - 1), baw - 1):
             kp.init_frame(i)
             #Tgt = kp._Tgt[i]
             #T = kp._T0[i]

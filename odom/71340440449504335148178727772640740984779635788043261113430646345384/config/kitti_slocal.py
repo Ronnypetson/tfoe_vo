@@ -299,7 +299,7 @@ def main():
     sgt0 = np.linalg.norm(kp._Tgt[0][:3, 3]) / kp._rs0[0]
 
     try:
-        for i in range(0, kp.seq_len - (baw - 1), baw - 1):
+        for i in range(0, kp.seq_len, baw - 1):
             kp.init_frame(i)
             #Tgt = kp._Tgt[i]
             #T = kp._T0[i]

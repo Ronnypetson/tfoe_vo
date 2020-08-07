@@ -59,7 +59,7 @@ class KpT0_BA:
         self.bf = cv2.BFMatcher(cv2.NORM_HAMMING, crossCheck=True)
         #self.stereo = cv2.StereoBM_create(numDisparities=1024, blockSize=15)
         window_size = 3
-        min_disp = 6
+        min_disp = 16
         num_disp = 112 - min_disp
         self.min_disp = min_disp
         self.num_disp = num_disp

@@ -39,7 +39,7 @@ class KpT0_BA:
         T_vw[0, 1] = 1.0
         T_vw[1, 2] = 1.0
         T_vw[2, 0] = 1.0
-        T_c10[:3, 3:] = T_vw @ T_c10[:3, 3:]
+        #T_c10[:3, 3:] = T_vw @ T_c10[:3, 3:]
         self.T_c10 = T_c10
         ret = cv2.stereoRectify(self.c, np.zeros(4), self.c2,
                                 np.zeros(4), self.size, self.T_c10[:3, :3],
@@ -59,8 +59,8 @@ class KpT0_BA:
         self.bf = cv2.BFMatcher(cv2.NORM_HAMMING, crossCheck=True)
         #self.stereo = cv2.StereoBM_create(numDisparities=1024, blockSize=15)
         window_size = 3
-        min_disp = 6
-        num_disp = 112 - min_disp
+        min_disp = 16
+        num_disp = 256 - min_disp
         self.min_disp = min_disp
         self.num_disp = num_disp
         self.stereo = cv2.StereoSGBM_create(minDisparity=min_disp,

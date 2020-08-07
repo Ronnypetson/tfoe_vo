@@ -15,7 +15,7 @@ from versions import files_to_hash, save_state
 from utils import norm_t, plot_trajs, ba_graph
 from utils import save_poses, pt_cloud, plot_pt_cloud
 from reproj import triangulate, rel_scale, rel_scale_
-from reproj import triangulate_
+from reproj import triangulate_, rel_scale_2
 
 
 class KpT0_BA:
@@ -59,8 +59,8 @@ class KpT0_BA:
         self.bf = cv2.BFMatcher(cv2.NORM_HAMMING, crossCheck=True)
         #self.stereo = cv2.StereoBM_create(numDisparities=1024, blockSize=15)
         window_size = 3
-        min_disp = 16
-        num_disp = 256 - min_disp
+        min_disp = 6
+        num_disp = 112 - min_disp
         self.min_disp = min_disp
         self.num_disp = num_disp
         self.stereo = cv2.StereoSGBM_create(minDisparity=min_disp,
@@ -97,8 +97,8 @@ class KpT0_BA:
 
             im1 = self.kitti.get_cam0(i_)
             im1 = np.array(im1)
-            im1r = self.kitti.get_cam1(i_)
-            im1r = np.array(im1r)
+            #im1r = self.kitti.get_cam1(i_)
+            #im1r = np.array(im1r)
 
             kp0 = self.feature_detector.detect(im0, None)
             kp0 = np.array([[x.pt] for x in kp0], dtype=np.float32)
@@ -106,42 +106,51 @@ class KpT0_BA:
             try:
                 p1, st, err = cv2.calcOpticalFlowPyrLK(im0, im1, kp0,
                                                        None, **self.lk_params)
-                #kp0r, _, _ = cv2.calcOpticalFlowPyrLK(im0, im0r, kp0,
-                #                                       None, **self.lk_params)
+                kp1_0r, _, _ = cv2.calcOpticalFlowPyrLK(im1, im0r, p1,
+                                                       None, **self.lk_params)
 
-                disp = self.stereo.compute(im0, im0r)
+                if False:
+                    disp = self.stereo.compute(im0, im0r)
 
-                Q = self.Q
-                points = cv2.reprojectImageTo3D(disp, Q)
-                #mask = disp > disp.min()
-                #out_points = points[mask]
-                plt.imshow((disp - self.min_disp) / self.num_disp)
-                plt.show()
+                    Q = self.Q
+                    points = cv2.reprojectImageTo3D(disp, Q)
+                    #mask = disp > disp.min()
+                    #out_points = points[mask]
+                    #plt.imshow((disp - self.min_disp) / self.num_disp)
+                    #plt.show()
 
-                kp0r = []
-                sx = []
-                for j in range(len(kp0)):
-                    pt0r = np.array(kp0[j], dtype=np.int32)
-                    dispj = disp[pt0r[0, 1], pt0r[0, 0]]
-                    pt0r = np.array(pt0r, dtype=np.float32)
-                    pt0r[0, 0] = pt0r[0, 0] - dispj
-                    kp0r.append(pt0r) # 1.0 / np.abs(dispj)
-                    if dispj > disp.min():
-                        px = int(kp0[j, 0, 0])
-                        py = int(kp0[j, 0, 1])
-                        sx.append([points[py, px, 0],
-                                   points[py, px, 1],
-                                   points[py, px, 2]])
-                kp0r = np.array(kp0r)
-                sx = np.array(sx).T
-                #sx = out_points.copy().T
+                    kp0r = []
+                    sx = []
+                    for j in range(len(kp0)):
+                        pt0r = np.array(kp0[j], dtype=np.int32)
+                        dispj = disp[pt0r[0, 1], pt0r[0, 0]]
+                        pt0r = np.array(pt0r, dtype=np.float32)
+                        pt0r[0, 0] = pt0r[0, 0] - dispj
+                        kp0r.append(pt0r) # 1.0 / np.abs(dispj)
+                        if dispj > disp.min():
+                            px = int(kp0[j, 0, 0])
+                            py = int(kp0[j, 0, 1])
+                            sx.append([points[py, px, 0],
+                                       points[py, px, 1],
+                                       points[py, px, 2]])
+                    kp0r = np.array(kp0r)
+                    sx = np.array(sx).T
 
                 E, mask = cv2.findEssentialMat(p1, kp0, self.camera_matrix,
                                                cv2.RANSAC, 0.999, 0.1, None)
+                E10, _ = cv2.findEssentialMat(kp1_0r, p1, self.camera_matrix,
+                                               cv2.RANSAC, 0.999, 0.1, None)
+
                 vids = [j for j in range(len(mask)) if mask[j] == 1.0]
                 avids = vids
 
                 _, R, t, mask = cv2.recoverPose(E, p1, kp0, self.camera_matrix, mask=mask)
+                _, R10, t10, _ = cv2.recoverPose(E10, kp1_0r, p1, self.camera_matrix)
+
+                gsc = rel_scale_2(self.T_c10[:3, 3:],
+                                  np.reshape(t, (3, 1)),
+                                  np.reshape(t10, (3, 1)))
+
                 T0 = np.eye(4)
 
                 if np.trace(R) < 3*(1.0 - 0.2)\
@@ -178,7 +187,7 @@ class KpT0_BA:
                 inert = np.linalg.inv(self.gt_odom[i])
                 Tgt = inert @ self.gt_odom[i_]
 
-                if True:
+                if True and False:
                     #w, h = self.camera_matrix[:2, 2]
                     #spt = [j for j, p in enumerate(kp0)
                     #       if p[0, 1] > 3 * h // 2
@@ -238,9 +247,11 @@ class KpT0_BA:
                     #    #    self._rs0[i] = self._rs0[i - 1]
 
                     #sgt = np.linalg.norm(Tgt[:3, 3:])
-                self._rs0[i] = 1.0
+                self._rs0[i] = gsc #1.0
 
                 #norm_gt = np.linalg.norm(Tgt[:3, 3:])
+                #print(norm_gt)
+                #input()
                 #T0 = norm_t(T0.copy(), norm_gt)
 
                 self._kpts[i] = kp0
@@ -345,8 +356,9 @@ def main():
     ge[0] = c @ np.array([0.0, 0.0, 1.0]) # / 1e3
     baw = 2
     kp.init_frame(0)
-    sgt0 = np.linalg.norm(kp._Tgt[0][:3, 3])\
-            / np.linalg.norm(kp._T0[0][:3, 3]) #kp._rs0[0]
+    #sgt0 = np.linalg.norm(kp._Tgt[0][:3, 3])\
+    #        / np.linalg.norm(kp._T0[0][:3, 3]) #kp._rs0[0]
+    sgt0 = 1.0
 
     try:
         for i in range(0, kp.seq_len - (baw - 1), baw - 1):

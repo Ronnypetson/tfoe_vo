@@ -125,6 +125,19 @@ def rel_scale_(T01, T12, T02):
     return 1.0 / s[0][0]
 
 
+def rel_scale_2(tlr, tll_, tl_r):
+    '''
+    t* is (3, 1)
+    '''
+    A = np.concatenate([tll_, tl_r], axis=-1)
+    b = tlr[:, 0]
+    s = np.linalg.lstsq(A, b)[0][0]
+    s = np.abs(s)
+    #s = np.linalg.solve(A[[0, 1]], b[[0, 1]])
+    #print('solve', s)
+    return s
+
+
 def reproj_tc_foe(p, p_, T, foe, c):
     ''' Computes rerpojection of points p given pose T and camera intrinsics c.
         T is in SE3 form.

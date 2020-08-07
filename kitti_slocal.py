@@ -27,9 +27,25 @@ class KpT0_BA:
         self.kitti = pykitti.odometry(basedir, seq)
         self.gt_odom = self.kitti.poses
         self.seq_len = len(self.gt_odom)
-        self.camera_matrix = np.array([[718.8560, 0.0, 607.1928],
-                                       [0.0, 718.8560, 185.2157],
-                                       [0.0, 0.0,      1.0]])
+        #self.camera_matrix = np.array([[718.8560, 0.0, 607.1928],
+        #                               [0.0, 718.8560, 185.2157],
+        #                               [0.0, 0.0,      1.0]])
+        self.camera_matrix = self.kitti.calib.K_cam0
+        self.c = self.camera_matrix
+        self.c2 = self.kitti.calib.K_cam1
+        T_c10 = np.linalg.inv(self.kitti.calib.T_cam0_velo) @\
+                     self.kitti.calib.T_cam1_velo
+        T_vw = np.zeros((3, 3))
+        T_vw[0, 1] = 1.0
+        T_vw[1, 2] = 1.0
+        T_vw[2, 0] = 1.0
+        T_c10[:3, 3:] = T_vw @ T_c10[:3, 3:]
+        self.T_c10 = T_c10
+        ret = cv2.stereoRectify(self.c, np.zeros(4), self.c2,
+                                np.zeros(4), self.size, self.T_c10[:3, :3],
+                                self.T_c10[:3, 3:])
+        self.Q = ret[4]
+
         self.c_ = np.linalg.inv(self.camera_matrix)
         self.feature_detector = cv2.FastFeatureDetector_create(threshold=fast_th,
                                                                nonmaxSuppression=True)
@@ -41,6 +57,21 @@ class KpT0_BA:
                               criteria=(cv2.TERM_CRITERIA_EPS |
                                         cv2.TERM_CRITERIA_COUNT, 55, 0.03))
         self.bf = cv2.BFMatcher(cv2.NORM_HAMMING, crossCheck=True)
+        #self.stereo = cv2.StereoBM_create(numDisparities=1024, blockSize=15)
+        window_size = 3
+        min_disp = 16
+        num_disp = 112 - min_disp
+        self.min_disp = min_disp
+        self.num_disp = num_disp
+        self.stereo = cv2.StereoSGBM_create(minDisparity=min_disp,
+                                            numDisparities=num_disp,
+                                            blockSize=16,
+                                            P1=8 * 3 * window_size ** 2,
+                                            P2=32 * 3 * window_size ** 2,
+                                            disp12MaxDiff=1,
+                                            uniquenessRatio=10,
+                                            speckleWindowSize=100,
+                                            speckleRange=32)
 
         self._kpts = {} # keypoint cache, i -> kp
         self._kptsij = {} # [i,j] -> kpij
@@ -61,14 +92,51 @@ class KpT0_BA:
             i_ = min(i+1, self.seq_len-1)
             im0 = self.kitti.get_cam0(i)
             im0 = np.array(im0)
+            im0r = self.kitti.get_cam1(i)
+            im0r = np.array(im0r)
+
             im1 = self.kitti.get_cam0(i_)
             im1 = np.array(im1)
+            im1r = self.kitti.get_cam1(i_)
+            im1r = np.array(im1r)
+
             kp0 = self.feature_detector.detect(im0, None)
             kp0 = np.array([[x.pt] for x in kp0], dtype=np.float32)
 
             try:
                 p1, st, err = cv2.calcOpticalFlowPyrLK(im0, im1, kp0,
                                                        None, **self.lk_params)
+                #kp0r, _, _ = cv2.calcOpticalFlowPyrLK(im0, im0r, kp0,
+                #                                       None, **self.lk_params)
+
+                disp = self.stereo.compute(im0, im0r)
+                #plt.imshow(disp)
+                #plt.show()
+
+                Q = self.Q
+                points = cv2.reprojectImageTo3D(disp, Q)
+                #mask = disp > disp.min()
+                #out_points = points[mask]
+                #plt.imshow((disp - self.min_disp) / self.num_disp)
+                #plt.show()
+
+                kp0r = []
+                sx = []
+                for j in range(len(kp0)):
+                    pt0r = np.array(kp0[j], dtype=np.int32)
+                    dispj = disp[pt0r[0, 1], pt0r[0, 0]]
+                    pt0r = np.array(pt0r, dtype=np.float32)
+                    pt0r[0, 0] = pt0r[0, 0] - dispj
+                    kp0r.append(pt0r) # 1.0 / np.abs(dispj)
+                    if dispj > disp.min():
+                        px = int(kp0[j, 0, 0])
+                        py = int(kp0[j, 0, 1])
+                        sx.append([points[py, px, 0],
+                                   points[py, px, 1],
+                                   points[py, px, 2]])
+                kp0r = np.array(kp0r)
+                sx = np.array(sx).T
+                #sx = out_points.copy().T
 
                 E, mask = cv2.findEssentialMat(p1, kp0, self.camera_matrix,
                                                cv2.RANSAC, 0.999, 0.1, None)
@@ -113,88 +181,66 @@ class KpT0_BA:
                 Tgt = inert @ self.gt_odom[i_]
 
                 if True:
-                    w, h = self.camera_matrix[:2, 2]
-                    spt = [j for j, p in enumerate(kp0)
-                           if p[0, 1] > 3 * h // 2
-                           and np.abs(p[0, 0] - w) < 230
-                           and j in avids]
-                    if len(spt) < 8:
-                        spt = [j for j, p in enumerate(kp0)
-                               if p[0, 1] > 3 * h // 2
-                               and np.abs(p[0, 0] - w) < 230]
-                    # and np.abs(p[0, 0] - w) < 300
-                    spt0 = kp0[spt][:, 0].T # spt
-                    spt1 = p1[spt][:, 0].T
-
-                    Ts = np.linalg.inv(T0.copy())
-                    Ts[:3, 3] /= np.linalg.norm(Ts[:3, 3])
-                    #sx = triangulate_(spt0, spt1, Ts,
-                    #                  self.camera_matrix)
-                    sx, den = triangulate(spt0, spt1, Ts,
-                                          self.camera_matrix,
-                                          self.camera_matrix @ Ts[:3, 3:])
-                    good = [j for j in range(sx.shape[1])
-                            if sx[2, j] < 200
-                            and sx[2, j] > 0.0
-                            and den[j] > 0.05]
-                    sx = sx[:, good]
-                    spt0 = spt0[:, good]
-                    #sx = sx / sx[2]
-
-                    #fig = plt.figure()
-                    #ax = fig.add_subplot(111, projection='3d')
-                    #ax.view_init(elev=-90.0, azim=-90.0)
-                    #ax.scatter(sx[0], sx[1], sx[2], marker='.')
-                    #ax.set_xlabel('X Label')
-                    #ax.set_ylabel('Y Label')
-                    #ax.set_zlabel('Z Label')
-                    #plt.show()
-
-                    c_ = np.linalg.inv(self.camera_matrix)
-                    spt0 = c_[:2, :2] @ spt0 + c_[:2, 2:]
-                    sc = 1.0 / np.abs(sx[2] * (spt0[1]))
-                    sc = np.median(sc) # / np.min(sc)
-                    #sc2 = np.std(np.abs(sx[2]))
-                    if np.isnan(sc):
-                        if i == 0:
-                            self._rs0[i] = 1.0
-                        else:
-                            self._rs0[i] = self._rs0[i - 1]
-                    else:
-                        self._rs0[i] = sc
-                        #if i == 0:
-                        #    self._rs0[i] = sc
-                        #elif 0.9 < sc / self._rs0[i - 1] < 1.1:
-                        #    self._rs0[i] = sc
-                        #else:
-                        #    self._rs0[i] = self._rs0[i - 1]
-
-                    #sgt = np.linalg.norm(Tgt[:3, 3:])
-
-                if False:
-                    w, h = self.camera_matrix[:2, 2]
-                    spt = [j for j, p in enumerate(kp0)
-                           if p[0, 1] > 3 * h // 2
-                           and np.abs(p[0, 0] - w) < 200]
-                    spt0 = kp0[spt][:, 0].T  # spt
-                    spt1 = p1[spt][:, 0].T
+                    #w, h = self.camera_matrix[:2, 2]
+                    #spt = [j for j, p in enumerate(kp0)
+                    #       if p[0, 1] > 3 * h // 2
+                    #       and np.abs(p[0, 0] - w) < 230
+                    #       and j in avids]
+                    #if len(spt) < 8:
+                    #    spt = [j for j, p in enumerate(kp0)
+                    #           if p[0, 1] > 3 * h // 2
+                    #           and np.abs(p[0, 0] - w) < 230]
+                    ## and np.abs(p[0, 0] - w) < 300
+                    #spt0 = kp0[avids][:, 0].T # spt
+                    #spt1 = kp0r[avids][:, 0].T #p1[:][:, 0].T
 
                     #Ts = np.linalg.inv(T0.copy())
-                    Ts = T0.copy()
-                    Ts[:3, 3] /= np.linalg.norm(Ts[:3, 3])
+                    #Ts[:3, 3] /= np.linalg.norm(Ts[:3, 3])
+                    #Ts = np.eye(4)
+                    #Ts[0, -1] = 1.0
+                    #Ts = np.linalg.inv(Ts)
+                    #sx = triangulate_(spt0, spt1, Ts,
+                    #                  self.camera_matrix)
+                    #sx, den = triangulate(spt0, spt1, Ts,
+                    #                      self.camera_matrix,
+                    #                      self.camera_matrix @ Ts[:3, 3:])
+                    #good = [j for j in range(sx.shape[1])
+                    #        if sx[2, j] < 400
+                    #        and sx[2, j] > 0.0]
+                    # and den[j] > 0.05
+                    #sx = sx[:, good]
+                    #spt0 = spt0[:, good]
 
-                    c_ = np.linalg.inv(self.camera_matrix)
-                    spt0 = c_[:2, :2] @ spt0 + c_[:2, 2:]
-                    spt1 = c_[:2, :2] @ spt1 + c_[:2, 2:]
+                    fig = plt.figure()
+                    ax = fig.add_subplot(111, projection='3d')
+                    ax.view_init(elev=90.0, azim=-90.0)
+                    ax.scatter(sx[0], sx[1], sx[2], marker='.')
+                    ax.set_xlabel('X Label')
+                    ax.set_ylabel('Y Label')
+                    ax.set_zlabel('Z Label')
+                    plt.show()
 
-                    nt = np.zeros((1, 3))
-                    nt[0, -1] = 1.0
-                    nt = (Ts[:3, :3] @ nt.T).T
+                    #c_ = np.linalg.inv(self.camera_matrix)
+                    #spt0 = c_[:2, :2] @ spt0 + c_[:2, 2:]
+                    #sc = 1.0 / np.abs(sx[2] * (spt0[1]))
+                    #sc = np.median(sc) # / np.min(sc)
+                    #sc2 = np.std(np.abs(sx[2]))
+                    #if np.isnan(sc):
+                    #    if i == 0:
+                    #        self._rs0[i] = 1.0
+                    #    else:
+                    #        self._rs0[i] = self._rs0[i - 1]
+                    #else:
+                    #    self._rs0[i] = sc
+                    #    #if i == 0:
+                    #    #    self._rs0[i] = sc
+                    #    #elif 0.9 < sc / self._rs0[i - 1] < 1.1:
+                    #    #    self._rs0[i] = sc
+                    #    #else:
+                    #    #    self._rs0[i] = self._rs0[i - 1]
 
-                    H, _ = cv2.findHomography(spt0.T, spt1.T, method=cv2.RANSAC)
-                    sc = Ts[:3, 3:] @ nt @ np.linalg.inv(H - Ts[:3, :3])
-                    sgt = np.linalg.norm(Tgt[:3, 3:])
-                    self._rs0[i] = np.mean(np.abs(sc))
+                    #sgt = np.linalg.norm(Tgt[:3, 3:])
+                self._rs0[i] = 1.0
 
                 #norm_gt = np.linalg.norm(Tgt[:3, 3:])
                 #T0 = norm_t(T0.copy(), norm_gt)
@@ -278,7 +324,7 @@ def main():
 
     if not os.path.isdir(run_dir):
         os.makedirs(run_dir)
-    bdir = '/home/ronnypetson/Downloads/kitti_seq/dataset/'
+    bdir = '/home/ronnypetson/dataset/' # Downloads/kitti_seq/
     h, w = 376, 1241
     kp = KpT0_BA(h, w, bdir, seq_id, fast_th=15)
     c = kp.camera_matrix
@@ -346,7 +392,6 @@ def main():
 
             for j in range(baw):
                 ge[i + j] = kp._ep0[i + j].copy() # / 1e3
-                #ge[i + j] = c @ np.array([0.0, 0.0, 1.0])
 
             gs[i] = 1.0
             for j in range(i + 1, i + baw - 1, 1):
@@ -393,12 +438,8 @@ def main():
 
             #s_ = Tfoe[:, 8]
             print('ep', Tfoe[:, 8])
-            #print('çç', s_[0] / s_[1])
             #print('scale\t', sc[:-1])
-            #print(1.0, kp._rs0[i + 1] / kp._rs0[i])
             #print('scalegt\t', scale_gt[:-1])
-            #print('~~~', np.linalg.norm(Tfoe[:, :3], axis=1)
-            #      / np.linalg.norm(Tfoe[0, :3]))
 
             for j in range(baw - 1):
                 #normT = np.linalg.norm(kp._Tgt[i + j][:3, 3])
@@ -424,12 +465,6 @@ def main():
                 W_poses.append(pose0)
                 W_poses_gt.append(pose0_gt)
                 W_poses_init.append(pose0_init)
-
-            #if i > 0:
-            #    rs0 *= gs[i - 1] * rs_
-            #else:
-            #    rs0 *= rs_
-            #print(rs0)
 
             if (i % baw == baw - 1) and (i % 10 == 9):
                 P = [poses_gt, poses, poses_]

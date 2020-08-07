@@ -100,3 +100,28 @@ elif False:
     self._trpt[i] = [(trpt00, trpt01), (trpt10, trpt11)]
 else:
     self._rs0[i] = 1.0
+
+if False:
+    w, h = self.camera_matrix[:2, 2]
+    spt = [j for j, p in enumerate(kp0)
+           if p[0, 1] > 3 * h // 2
+           and np.abs(p[0, 0] - w) < 200]
+    spt0 = kp0[spt][:, 0].T  # spt
+    spt1 = p1[spt][:, 0].T
+
+    # Ts = np.linalg.inv(T0.copy())
+    Ts = T0.copy()
+    Ts[:3, 3] /= np.linalg.norm(Ts[:3, 3])
+
+    c_ = np.linalg.inv(self.camera_matrix)
+    spt0 = c_[:2, :2] @ spt0 + c_[:2, 2:]
+    spt1 = c_[:2, :2] @ spt1 + c_[:2, 2:]
+
+    nt = np.zeros((1, 3))
+    nt[0, -1] = 1.0
+    nt = (Ts[:3, :3] @ nt.T).T
+
+    H, _ = cv2.findHomography(spt0.T, spt1.T, method=cv2.RANSAC)
+    sc = Ts[:3, 3:] @ nt @ np.linalg.inv(H - Ts[:3, :3])
+    sgt = np.linalg.norm(Tgt[:3, 3:])
+    self._rs0[i] = np.mean(np.abs(sc))

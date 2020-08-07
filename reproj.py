@@ -53,7 +53,8 @@ def triangulate(p, p_, T, c, e):
     #e = np.concatenate([e, z], axis=0)
     e = np.reshape(e, (3, 1))
     e = c_ @ e
-    e = e / e[-1]
+    if np.abs(e[-1]) > 1e-10:
+        e = e / e[-1]
     p = c_ @ p
     p_ = c_ @ p_
 

@@ -150,7 +150,6 @@ class KpT0_BA:
                 gsc = rel_scale_2(self.T_c10[:3, 3:],
                                   R10 @ np.reshape(t, (3, 1)),
                                   np.reshape(t10, (3, 1)))
-                self._rs0[i] = gsc # 1.0
 
                 T0 = np.eye(4)
 
@@ -160,16 +159,12 @@ class KpT0_BA:
                     R = np.eye(3)
                     t = np.zeros((3, 1))
                     t[-1] = 1.0
-                    if i > 0:
-                        self._rs0[i] = self._rs0[i - 1]
 
                 if np.max(np.abs(t)) < 0.8\
                     or np.any(np.isnan(t))\
                     or np.any(np.isinf(t)):
                     t = np.zeros((3, 1))
                     t[-1] = 1.0
-                    if i > 0:
-                        self._rs0[i] = self._rs0[i - 1]
 
                 T0[:3, :3] = R
                 T0[:3, 3:] = t
@@ -252,6 +247,7 @@ class KpT0_BA:
                     #    #    self._rs0[i] = self._rs0[i - 1]
 
                     #sgt = np.linalg.norm(Tgt[:3, 3:])
+                self._rs0[i] = gsc #1.0
 
                 #norm_gt = np.linalg.norm(Tgt[:3, 3:])
                 #print(norm_gt)

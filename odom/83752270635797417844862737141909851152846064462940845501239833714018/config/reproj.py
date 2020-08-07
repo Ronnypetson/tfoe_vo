@@ -131,8 +131,8 @@ def rel_scale_2(tlr, tll_, tl_r):
     '''
     A = np.concatenate([tll_, tl_r], axis=-1)
     b = tlr[:, 0]
-    s, s_ = np.linalg.lstsq(A, b)[0]
-    #s = np.linalg.solve(A[[0, 2]], b[[0, 2]])[0]
+    #s, s_ = np.linalg.lstsq(A, b)[0]
+    s = np.linalg.solve(A[[0, 2]], b[[0, 2]])[0]
     s = np.abs(s)
     return s
 

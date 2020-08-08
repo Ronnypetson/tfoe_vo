@@ -409,7 +409,7 @@ def main():
             Tfoe = opt.optimize(gT[i:i + baw],
                                 ge[i:i + baw],
                                 gs[i:i + baw],
-                                freeze=False)
+                                freeze=True)
             print('loss', opt.min_obj)
 
             Tfoe = Tfoe.reshape(-1, 10)

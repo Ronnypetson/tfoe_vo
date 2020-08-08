@@ -172,8 +172,8 @@ class KpT0_BA:
                         self._rs0[i] = self._rs0[i - 1]
 
                 T0[:3, :3] = R
-                #T0[:3, 3:] = t
-                T0[:3, 3:] = gsc * t
+                T0[:3, 3:] = t
+                #T0[:3, 3:] = gsc * t
 
                 if len(mask) > 3:
                     vids_ = [j for j in range(len(mask)) if mask[j] == 1.0]
@@ -368,6 +368,8 @@ def main():
     try:
         for i in range(0, kp.seq_len - (baw - 1), baw - 1):
             kp.init_frame(i)
+            #Tgt = kp._Tgt[i]
+            #T = kp._T0[i]
 
             g = ba_graph(i, i + (baw - 1))
             p = {}
@@ -406,10 +408,35 @@ def main():
             for j in range(baw):
                 ge[i + j] = kp._ep0[i + j].copy() # / 1e3
 
+            gs[i] = 1.0
+            for j in range(i + 1, i + baw - 1, 1):
+                continue
+                #gs[j] = kp._rs0[j]
+                #rs_ *= gs[j]
+                #continue
+                #id0 = j - 1
+                #id1 = j
+                #id2 = j + 1
+
+                T01 = kp._Tgt[id0].copy() #
+                T12 = kp._Tgt[id1].copy() #
+                T02 = T12 @ T01 #
+
+                #T01 = kp._T0[id0].copy() #
+                #T12 = kp._T0[id1].copy() #
+                #T02 = kp._Tij0[(id0, id2)].copy() #
+
+                T01[:3, 3:] /= np.linalg.norm(T01[:3, 3])
+                T12[:3, 3:] /= np.linalg.norm(T12[:3, 3])
+                T02[:3, 3:] /= np.linalg.norm(T02[:3, 3])
+                sc = rel_scale_(T01, T12, T02)
+                rs_ *= sc
+                rec_sc.append(rs_)
+
             Tfoe = opt.optimize(gT[i:i + baw],
                                 ge[i:i + baw],
                                 gs[i:i + baw],
-                                freeze=False)
+                                freeze=True)
             print('loss', opt.min_obj)
 
             Tfoe = Tfoe.reshape(-1, 10)
@@ -433,8 +460,7 @@ def main():
                 #normT = np.linalg.norm(kp._Tgt[i + j][:3, 3])
                 #normT = rs0 * gs[i + j]
                 normT = sgt0 * kp._rs0[i + j] #1.0
-                #poses.append(norm_t(kp._T0[i + j].copy(), normT))
-                poses.append(kp._T0[i + j].copy())
+                poses.append(norm_t(kp._T0[i + j].copy(), normT))
                 #poses_gt.append(norm_t(kp._Tgt[i + j].copy(), normT))
                 poses_gt.append(kp._Tgt[i + j].copy())
 
@@ -444,14 +470,13 @@ def main():
                 #normT = np.linalg.norm(kp._Tgt[i + j][:3, 3])
                 normT = sgt0 * kp._rs0[i + j] #1.0
                 #normT = rs0 * gs[i + j]
-                #poses_.append(norm_t(T_.copy(), normT))
-                poses_.append(T_.copy())
-                #pose0 = pose0 @ norm_t(T_.copy(), normT)
-                pose0 = pose0 @ T_.copy()
+                poses_.append(norm_t(T_.copy(), normT))
+                #poses_.append(T_.copy())
+                #pose0 = pose0 @ T_
+                pose0 = pose0 @ norm_t(T_.copy(), normT)
                 #pose0_gt = pose0_gt @ norm_t(kp._Tgt[i + j].copy(), normT)
                 pose0_gt = pose0_gt @ kp._Tgt[i + j].copy()
-                #pose0_init = pose0_init @ norm_t(kp._T0[i + j].copy(), normT)
-                pose0_init = pose0_init @ kp._T0[i + j].copy()
+                pose0_init = pose0_init @ norm_t(kp._T0[i + j].copy(), normT)
                 W_poses.append(pose0)
                 W_poses_gt.append(pose0_gt)
                 W_poses_init.append(pose0_init)

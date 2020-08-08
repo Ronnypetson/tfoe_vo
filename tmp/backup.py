@@ -125,3 +125,28 @@ if False:
     sc = Ts[:3, 3:] @ nt @ np.linalg.inv(H - Ts[:3, :3])
     sgt = np.linalg.norm(Tgt[:3, 3:])
     self._rs0[i] = np.mean(np.abs(sc))
+
+gs[i] = 1.0
+for j in range(i + 1, i + baw - 1, 1):
+    continue
+    # gs[j] = kp._rs0[j]
+    # rs_ *= gs[j]
+    # continue
+    # id0 = j - 1
+    # id1 = j
+    # id2 = j + 1
+
+    T01 = kp._Tgt[id0].copy()  #
+    T12 = kp._Tgt[id1].copy()  #
+    T02 = T12 @ T01  #
+
+    # T01 = kp._T0[id0].copy() #
+    # T12 = kp._T0[id1].copy() #
+    # T02 = kp._Tij0[(id0, id2)].copy() #
+
+    T01[:3, 3:] /= np.linalg.norm(T01[:3, 3])
+    T12[:3, 3:] /= np.linalg.norm(T12[:3, 3])
+    T02[:3, 3:] /= np.linalg.norm(T02[:3, 3])
+    sc = rel_scale_(T01, T12, T02)
+    rs_ *= sc
+    rec_sc.append(rs_)

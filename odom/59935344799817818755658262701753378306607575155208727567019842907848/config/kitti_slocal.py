@@ -477,12 +477,12 @@ def main():
         save_poses(W_poses, f'{run_dir}/{seq_id}.txt')
         save_poses(W_poses, f'{exp_dir}/{seq_id}.txt')
         #save_poses(W_poses_gt, f'{exp_dir}/{seq_id}_gt.txt') # {run_tag}_
-        save_poses(W_poses_init, f'{exp_dir}/{seq_id}_init.txt')
+        #save_poses(W_poses_init, f'{exp_dir}/{seq_id}_init.txt')
     except KeyboardInterrupt as e:
         save_poses(W_poses, f'{run_dir}/{seq_id}.txt')
         save_poses(W_poses, f'{exp_dir}/{seq_id}.txt')
         #save_poses(W_poses_gt, f'{exp_dir}/{seq_id}_gt.txt')  # {run_tag}_
-        save_poses(W_poses_init, f'{exp_dir}/{seq_id}_init.txt')
+        #save_poses(W_poses_init, f'{exp_dir}/{seq_id}_init.txt')
         raise e
 
 

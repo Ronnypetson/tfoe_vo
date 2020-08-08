@@ -172,8 +172,8 @@ class KpT0_BA:
                         self._rs0[i] = self._rs0[i - 1]
 
                 T0[:3, :3] = R
-                #T0[:3, 3:] = t
-                T0[:3, 3:] = gsc * t
+                T0[:3, 3:] = t
+                #T0[:3, 3:] = gsc * t
 
                 if len(mask) > 3:
                     vids_ = [j for j in range(len(mask)) if mask[j] == 1.0]
@@ -433,8 +433,8 @@ def main():
                 #normT = np.linalg.norm(kp._Tgt[i + j][:3, 3])
                 #normT = rs0 * gs[i + j]
                 normT = sgt0 * kp._rs0[i + j] #1.0
-                #poses.append(norm_t(kp._T0[i + j].copy(), normT))
-                poses.append(kp._T0[i + j].copy())
+                poses.append(norm_t(kp._T0[i + j].copy(), normT))
+                #poses.append(kp._T0[i + j].copy())
                 #poses_gt.append(norm_t(kp._Tgt[i + j].copy(), normT))
                 poses_gt.append(kp._Tgt[i + j].copy())
 
@@ -444,19 +444,19 @@ def main():
                 #normT = np.linalg.norm(kp._Tgt[i + j][:3, 3])
                 normT = sgt0 * kp._rs0[i + j] #1.0
                 #normT = rs0 * gs[i + j]
-                #poses_.append(norm_t(T_.copy(), normT))
-                poses_.append(T_.copy())
-                #pose0 = pose0 @ norm_t(T_.copy(), normT)
-                pose0 = pose0 @ T_.copy()
+                poses_.append(norm_t(T_.copy(), normT))
+                #poses_.append(T_.copy())
+                pose0 = pose0 @ norm_t(T_.copy(), normT)
+                #pose0 = pose0 @ T_.copy()
                 #pose0_gt = pose0_gt @ norm_t(kp._Tgt[i + j].copy(), normT)
                 pose0_gt = pose0_gt @ kp._Tgt[i + j].copy()
-                #pose0_init = pose0_init @ norm_t(kp._T0[i + j].copy(), normT)
-                pose0_init = pose0_init @ kp._T0[i + j].copy()
+                pose0_init = pose0_init @ norm_t(kp._T0[i + j].copy(), normT)
+                #pose0_init = pose0_init @ kp._T0[i + j].copy()
                 W_poses.append(pose0)
                 W_poses_gt.append(pose0_gt)
                 W_poses_init.append(pose0_init)
 
-            if (i % baw == baw - 1) and (i % 10 == 9):
+            if i % baw == (baw - 1):
                 P = [poses_gt, poses, poses_]
                 #P = [poses_gt, poses, W_poses]
                 plot_trajs(P, f'{run_dir}/{seq_id}.svg', glb=False)
@@ -474,15 +474,15 @@ def main():
             if i % 10 == 9 and show_cloud:
                 plot_pt_cloud(np.array(cloud_all), f'{run_dir}/{seq_id}_pt_cloud.svg')
 
-        save_poses(W_poses, f'{run_dir}/KITTI_{seq_id}.txt')
-        save_poses(W_poses, f'{exp_dir}/KITTI_{seq_id}_{run_tag}.txt')
-        save_poses(W_poses_gt, f'{exp_dir}/KITTI_{seq_id}_{run_tag}_gt.txt')
-        save_poses(W_poses_init, f'{exp_dir}/KITTI_{seq_id}_{run_tag}_init.txt')
+        save_poses(W_poses, f'{run_dir}/{seq_id}.txt')
+        save_poses(W_poses, f'{exp_dir}/{seq_id}.txt')
+        save_poses(W_poses_gt, f'{exp_dir}/{seq_id}_gt.txt') # {run_tag}_
+        save_poses(W_poses_init, f'{exp_dir}/{seq_id}_init.txt')
     except KeyboardInterrupt as e:
-        save_poses(W_poses, f'{run_dir}/KITTI_{seq_id}.txt')
-        save_poses(W_poses, f'{exp_dir}/KITTI_{seq_id}_{run_tag}.txt')
-        save_poses(W_poses_gt, f'{exp_dir}/KITTI_{seq_id}_{run_tag}_gt.txt')
-        save_poses(W_poses_init, f'{exp_dir}/KITTI_{seq_id}_{run_tag}_init.txt')
+        save_poses(W_poses, f'{run_dir}/{seq_id}.txt')
+        save_poses(W_poses, f'{exp_dir}/{seq_id}.txt')
+        save_poses(W_poses_gt, f'{exp_dir}/{seq_id}_gt.txt')  # {run_tag}_
+        save_poses(W_poses_init, f'{exp_dir}/{seq_id}_init.txt')
         raise e
 
 

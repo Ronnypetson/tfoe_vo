@@ -309,7 +309,7 @@ def main():
     ge = np.zeros((kp.seq_len + 1, 3))
     gs = np.ones((kp.seq_len + 1, 1))
     ge[0] = c @ np.array([0.0, 0.0, 1.0]) # / 1e3
-    baw = 6
+    baw = 4
     kp.init_frame(0)
     #sgt0 = np.linalg.norm(kp._Tgt[0][:3, 3])\
     #        / np.linalg.norm(kp._T0[0][:3, 3]) #kp._rs0[0]

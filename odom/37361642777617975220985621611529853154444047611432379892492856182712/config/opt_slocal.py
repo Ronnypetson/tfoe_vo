@@ -106,7 +106,7 @@ class OptSingle:
             if self.x[ij].shape[1] == 32:
                 yij *= 1e-12
             else:
-                yij += 1e1*yt_ij
+                yij += 1e-4 * yt_ij
 
             #t0ij = T0ij[:3, 3:]
             #ep0ij = (c @ (t0ij / (t0ij[-1] + 1e-10))) / 1e3

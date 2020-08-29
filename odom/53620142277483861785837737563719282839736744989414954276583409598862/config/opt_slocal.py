@@ -105,8 +105,8 @@ class OptSingle:
             elif False:
                 T0ij = torch.from_numpy(self.T0ij[ij])
                 yt_ij = F.smooth_l1_loss(Tij[:3, :3], T0ij[:3, :3])
-                yij += 1e-2 * yt_ij
-                #yij = yt_ij
+                #yij += 1e0 * yt_ij
+                yij = yt_ij
 
             #t0ij = T0ij[:3, 3:]
             #ep0ij = (c @ (t0ij / (t0ij[-1] + 1e-10))) / 1e3

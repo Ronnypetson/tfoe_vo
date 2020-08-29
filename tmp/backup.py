@@ -150,3 +150,64 @@ for j in range(i + 1, i + baw - 1, 1):
     sc = rel_scale_(T01, T12, T02)
     rs_ *= sc
     rec_sc.append(rs_)
+
+if True and False:
+    # w, h = self.camera_matrix[:2, 2]
+    # spt = [j for j, p in enumerate(kp0)
+    #       if p[0, 1] > 3 * h // 2
+    #       and np.abs(p[0, 0] - w) < 230
+    #       and j in avids]
+    # if len(spt) < 8:
+    #    spt = [j for j, p in enumerate(kp0)
+    #           if p[0, 1] > 3 * h // 2
+    #           and np.abs(p[0, 0] - w) < 230]
+    ## and np.abs(p[0, 0] - w) < 300
+    # spt0 = kp0[avids][:, 0].T # spt
+    # spt1 = kp0r[avids][:, 0].T #p1[:][:, 0].T
+
+    # Ts = np.linalg.inv(T0.copy())
+    # Ts[:3, 3] /= np.linalg.norm(Ts[:3, 3])
+    # Ts = np.eye(4)
+    # Ts[0, -1] = 1.0
+    # Ts = np.linalg.inv(Ts)
+    # sx = triangulate_(spt0, spt1, Ts,
+    #                  self.camera_matrix)
+    # sx, den = triangulate(spt0, spt1, Ts,
+    #                      self.camera_matrix,
+    #                      self.camera_matrix @ Ts[:3, 3:])
+    # good = [j for j in range(sx.shape[1])
+    #        if sx[2, j] < 400
+    #        and sx[2, j] > 0.0]
+    # and den[j] > 0.05
+    # sx = sx[:, good]
+    # spt0 = spt0[:, good]
+
+    fig = plt.figure()
+    ax = fig.add_subplot(111, projection='3d')
+    ax.view_init(elev=90.0, azim=-90.0)
+    ax.scatter(sx[0], sx[1], sx[2], marker='.')
+    ax.set_xlabel('X Label')
+    ax.set_ylabel('Y Label')
+    ax.set_zlabel('Z Label')
+    plt.show()
+
+    # c_ = np.linalg.inv(self.camera_matrix)
+    # spt0 = c_[:2, :2] @ spt0 + c_[:2, 2:]
+    # sc = 1.0 / np.abs(sx[2] * (spt0[1]))
+    # sc = np.median(sc) # / np.min(sc)
+    # sc2 = np.std(np.abs(sx[2]))
+    # if np.isnan(sc):
+    #    if i == 0:
+    #        self._rs0[i] = 1.0
+    #    else:
+    #        self._rs0[i] = self._rs0[i - 1]
+    # else:
+    #    self._rs0[i] = sc
+    #    #if i == 0:
+    #    #    self._rs0[i] = sc
+    #    #elif 0.9 < sc / self._rs0[i - 1] < 1.1:
+    #    #    self._rs0[i] = sc
+    #    #else:
+    #    #    self._rs0[i] = self._rs0[i - 1]
+
+    # sgt = np.linalg.norm(Tgt[:3, 3:])

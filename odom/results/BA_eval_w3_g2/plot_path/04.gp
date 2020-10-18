@@ -1,7 +1,7 @@
 set term postscript eps enhanced color
 set output "04.eps"
 set size ratio -1
-set xrange [-217:215]
+set xrange [-216:216]
 set yrange [-19:413]
 set xlabel "x [m]"
 set ylabel "z [m]"

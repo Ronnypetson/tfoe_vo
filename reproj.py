@@ -433,9 +433,10 @@ def plot_dense_depth(im0, im1, T_acc, foe, c_tc):
     '''
     Generates dense depth map from dense flow, relative pose, and epipole
     '''
-    flow = cv2.calcOpticalFlowFarneback(im0, im1, None, 0.5, 3, 7, 3, 5, 1.2, 0)
+    # None, 0.5, 3, 15, 3, 5, 1.2, 0
+    flow = cv2.calcOpticalFlowFarneback(im0, im1, None, 0.5, 3, 23, 17, 5, 1.1, 0)
     h, w, _ = flow.shape
-    p0 = np.array([[[i, j] for j in range(w)] for i in range(h)])
+    p0 = np.array([[[j, i] for j in range(w)] for i in range(h)]) ### i, j
     p1 = p0 + flow
     p0 = np.reshape(p0, (h * w, 2))
     p1 = np.reshape(p1, (h * w, 2))
@@ -455,7 +456,7 @@ def plot_dense_depth(im0, im1, T_acc, foe, c_tc):
     #d = np.clip(d, 0, 220)
 
     cm = np.array([list(cmap(i)) for i in range(256)])
-    cm = np.reshape(cm[::-1], (256, 1, 3)).astype(np.uint8)
+    cm = np.reshape(cm[::-1], (256, 1, 3)).astype(np.uint8) ###
     d_ = cv2.applyColorMap(d, cm) # cv2.COLORMAP_HSV
     cv2.rectangle(d_, (foe[0] - 5, foe[1] - 5), (foe[0] + 5, foe[1] + 5), (0, 0, 0), 2)
 

@@ -339,9 +339,6 @@ def draw_heat(im, vd, velo, ep=None, fn=None):
                            width=2)
     if ep is not None:
         py, px = ep
-        #img_draw.rectangle([py - 5, px - 5, py + 5, px + 5],
-        #                   fill=(0, 0, 0),
-        #                   width=2)
         img_draw.ellipse([py - 5, px - 5, py + 5, px + 5],
                          fill=(0, 0, 0),
                          outline=(255, 255, 255),

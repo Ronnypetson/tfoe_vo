@@ -445,25 +445,12 @@ def main():
                 velo = velo / velo[:, -1:]
                 velo = (c @ velo.T).T
 
-                #cv2.applyColorMap(input_prob, cv2.COLORMAP_JET)
-
-                # Draw the points
-                #im0_ = Image.fromarray(np.uint8(cm.gray(im0) * 255))
-                #img_draw = ImageDraw.Draw(im0_)
-                #for xz, x in zip(vd, velo):
-                #    py, px = x[:2]
-                #    img_draw.rectangle([py - 1, px - 1, py + 1, px + 1],
-                #                       fill=cmap(xz),
-                #                       width=2)
-                #im0_.show()
-                velo = velo[:, :2]
+                velo = velo[:, :2]  # x, y
                 draw_heat(im0, vd, velo, fn=f'{dir3d}/gt_{seq_id}_{i}.png')
                 dh, dw = d_.shape
-                #velo_ = [[max(0, min(dh - 1, dh // 2 - y)),
-                #          max(0, min(dw - 1, x + dw // 2))]
-                #         for (x, y) in velo]
-                velo_ = [[max(0, min(y, dh - 1)),
-                          max(0, min(x, dw - 1))] for (x, y) in velo]
+
+                velo_ = [[max(0, min(y, dh - 1)), max(0, min(x, dw - 1))] for (x, y) in velo]
+
                 d_ = np.array([d_[int(x), int(y)] for (x, y) in velo_])
                 ep = [max(0, min(foe[1].item(), dh - 1)),
                       max(0, min(foe[0].item(), dw - 1))]

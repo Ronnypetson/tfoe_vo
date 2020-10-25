@@ -316,7 +316,6 @@ def main():
     baw = 2
     kp.init_frame(0)
     sgt0 = 1.0
-    dir3d = '/home/ronnypetson/Documents/repos/tmp/'
 
     try:
         for i in range(0, kp.seq_len - (baw - 1), baw - 1):
@@ -457,7 +456,7 @@ def main():
                 #                       width=2)
                 #im0_.show()
                 velo = velo[:, :2]
-                draw_heat(im0, vd, velo, fn=f'{dir3d}/gt_{seq_id}_{i}.png')
+                draw_heat(im0, vd, velo)
                 dh, dw = d_.shape
                 #velo_ = [[max(0, min(dh - 1, dh // 2 - y)),
                 #          max(0, min(dw - 1, x + dw // 2))]
@@ -465,12 +464,11 @@ def main():
                 velo_ = [[max(0, min(y, dh - 1)),
                           max(0, min(x, dw - 1))] for (x, y) in velo]
                 d_ = np.array([d_[int(x), int(y)] for (x, y) in velo_])
-                ep = [max(0, min(foe[1].item(), dh - 1)),
-                      max(0, min(foe[0].item(), dw - 1))]
-                ep = (int(ep[1]), int(ep[0]))
-                draw_heat(im0, d_, velo, ep, fn=f'{dir3d}/est_{seq_id}_{i}.png')
+                ep = [max(0, min(foe[1], dh - 1)),
+                      max(0, min(foe[0], dw - 1))]
+                draw_heat(im0, d_, velo, ep)
 
-                #input()
+                input()
                 #cloud = pt_cloud(p, p_, T_acc, foe, scale, c_tc, T_)
                 #cloud_all = np.concatenate([cloud_all, cloud], axis=1) # [:,:20]
 

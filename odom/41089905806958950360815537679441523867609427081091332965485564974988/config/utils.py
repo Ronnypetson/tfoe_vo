@@ -326,7 +326,7 @@ def cmap(n):
         return (0, 4 * (255 - n), 255)
 
 
-def draw_heat(im, vd, velo, ep=None, fn=None):
+def draw_heat(im, vd, velo, ep=None):
     '''
     velo is N x 2
     '''
@@ -343,10 +343,7 @@ def draw_heat(im, vd, velo, ep=None, fn=None):
         #                   fill=(0, 0, 0),
         #                   width=2)
         img_draw.ellipse([py - 5, px - 5, py + 5, px + 5],
-                         fill=(0, 0, 0),
-                         outline=(255, 255, 255),
-                         width=2)
-    if fn is not None:
-        im0_.save(fn)
-    else:
-        im0_.show()
+                          fill=None,
+                          outline=(0, 0, 0),
+                          width=2)
+    im0_.show()
